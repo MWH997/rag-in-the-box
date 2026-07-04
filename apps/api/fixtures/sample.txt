@@ -1,0 +1,2 @@
+Hello, sample text file.
+Second line of plain text.

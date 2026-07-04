@@ -9,11 +9,9 @@ endobj
 << /Type /Page /Parent 2 0 R /Resources << /Font << /F1 5 0 R >> >> /MediaBox [0 0 300 300] /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 48 >>
+<< /Length 0 >>
 stream
-BT /F1 12 Tf 20 270 Td
-(Hello, sample PDF) Tj
-ET
+
 endstream
 endobj
 5 0 obj
@@ -26,9 +24,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000000339 00000 n 
+0000000290 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-409
+360
 %%EOF
