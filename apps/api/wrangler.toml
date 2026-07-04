@@ -1,0 +1,20 @@
+name = "rag-api"
+main = "src/index.ts"
+compatibility_date = "2026-07-04"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rag-db"
+database_id = "TBD"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "rag-index"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "rag-uploads"
+
+[vars]
+DEEPSEEK_MODEL = "deepseek-chat"
+ALLOWED_ORIGIN = "http://localhost:5173"
