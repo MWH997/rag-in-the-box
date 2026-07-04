@@ -6,6 +6,7 @@ import type { Env } from "./env.js";
 import { createDb } from "./db/index.js";
 import { documents } from "./db/schema.js";
 import { createAuth } from "./lib/auth.js";
+import { meRoute } from "./routes/me.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -17,6 +18,8 @@ app.use("*", async (c, next) => {
 });
 
 app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env).handler(c.req.raw));
+
+app.route("/api", meRoute);
 
 app.get("/health", (c) => {
   const body: HealthResponse = { ok: true };
