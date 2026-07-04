@@ -6,6 +6,7 @@ compatibility_date = "2026-07-04"
 binding = "DB"
 database_name = "rag-db"
 database_id = "TBD"
+migrations_dir = "drizzle"
 
 [[vectorize]]
 binding = "VECTORIZE"
