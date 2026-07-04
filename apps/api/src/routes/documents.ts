@@ -5,6 +5,7 @@ import type { Env } from "../env.js";
 import { requireAuth, type AuthVariables } from "../middleware/require-auth.js";
 import { createDb } from "../db/index.js";
 import { documents } from "../db/schema.js";
+import { routeDocument, TRIAGE } from "../lib/router.js";
 
 export const documentsRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -18,15 +19,30 @@ const EXTENSION_MIME_MAP = {
   md: "text/markdown",
 } as const;
 
-const UploadMeta = z.object({
-  filename: z.string().min(1).max(255),
-  extension: z.enum(["pdf", "csv", "docx", "txt", "md"]),
-  sizeBytes: z
-    .number()
-    .int()
-    .positive()
-    .max(MAX_UPLOAD_BYTES, `File exceeds the ${MAX_UPLOAD_BYTES} byte limit`),
-});
+// .txt/.csv/.md are never routed to LlamaParse (TICKET-32 rule 2), and local
+// parsing needs the whole file in memory, so anything over the router's own
+// local-size ceiling has nowhere safe to go and is rejected outright here
+// rather than accepted and failing later.
+const NEVER_LLAMAPARSE_EXTENSIONS = new Set(["txt", "csv", "md"]);
+
+const UploadMeta = z
+  .object({
+    filename: z.string().min(1).max(255),
+    extension: z.enum(["pdf", "csv", "docx", "txt", "md"]),
+    sizeBytes: z
+      .number()
+      .int()
+      .positive()
+      .max(MAX_UPLOAD_BYTES, `File exceeds the ${MAX_UPLOAD_BYTES} byte limit`),
+  })
+  .refine(
+    (value) =>
+      !NEVER_LLAMAPARSE_EXTENSIONS.has(value.extension) || value.sizeBytes <= TRIAGE.MAX_LOCAL_BYTES,
+    {
+      message: `.txt/.csv/.md files must be at most ${TRIAGE.MAX_LOCAL_BYTES} bytes — they are always parsed locally and cannot fall back to LlamaParse`,
+      path: ["sizeBytes"],
+    },
+  );
 
 function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -86,6 +102,18 @@ documentsRoute.post("/documents", requireAuth, async (c) => {
     .update(documents)
     .set({ r2Key, updatedAt: Date.now() })
     .where(eq(documents.id, inserted.id));
+
+  // Materializing the whole file here (via file.arrayBuffer()) is expected
+  // for local parsing — unlike the R2 upload above, the parsers in TICKET-31
+  // inherently need the full buffer resident, which is exactly why the
+  // 20 MB router size guard exists in the first place. Blobs/Files are
+  // re-readable, so this is independent of the .stream() already consumed
+  // by BUCKET.put() above.
+  await routeDocument(
+    c.env,
+    { id: inserted.id, tenantId, filename: sanitizedFilename, sizeBytes: parsed.data.sizeBytes },
+    () => file.arrayBuffer(),
+  );
 
   return c.json({ documentId: inserted.id });
 });

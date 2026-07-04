@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
-# TICKET-10 verification: signs up a fresh user, uploads the sample PDF
-# fixture, confirms a documentId + r2_key are returned/stored, confirms the
-# R2 object exists, and confirms oversize/wrong-type uploads are rejected.
+# TICKET-10/32 verification: signs up a fresh user, uploads fixtures, and
+# confirms: documentId + r2_key are returned/stored, the R2 object exists,
+# oversize/wrong-type uploads are rejected, and the TICKET-32 triage router
+# picks the expected `parser` for each fixture (csv/digital.pdf -> local,
+# scanned.pdf -> llamaparse).
+#
+# NOTE (TICKET-32 partial): this only asserts `parser`/`status` immediately
+# after upload, not that the document reaches `active` or that a real
+# LlamaParse job id exists — those require TICKET-13/14 (chunker/embedder)
+# and TICKET-11 (LlamaParse submission, blocked on LLAMA_CLOUD_API_KEY),
+# none of which exist yet. See product.md Worklog for TICKET-32.
 # Run: apps/api/scripts/upload-smoke.sh [base_url]
 set -euo pipefail
 
@@ -10,6 +18,33 @@ BASE_URL="${1:-http://localhost:8787}"
 EMAIL="upload-smoke-$(date +%s)@example.com"
 COOKIE_JAR="$(mktemp)"
 trap 'rm -f "$COOKIE_JAR"' EXIT
+
+# Uploads $1 (fixture path) with content-type $2 and asserts the resulting
+# document row's `parser` column equals $3.
+assert_parser() {
+  local fixture="$1" content_type="$2" expected_parser="$3"
+  local upload_body document_id row_json actual_parser actual_status
+
+  upload_body=$(curl -sS -b "$COOKIE_JAR" -X POST "$BASE_URL/api/documents" \
+    -F "file=@$fixture;type=$content_type")
+  document_id=$(echo "$upload_body" | python3 -c "import json,sys; print(json.load(sys.stdin)['documentId'])")
+  if [ -z "$document_id" ]; then
+    echo "FAIL: no documentId returned for $fixture" >&2
+    echo "$upload_body" >&2
+    exit 1
+  fi
+
+  row_json=$(cd "$SCRIPT_DIR/.." && npx wrangler d1 execute rag-db --local --json --command \
+    "SELECT parser, status FROM documents WHERE id = '$document_id';")
+  actual_parser=$(echo "$row_json" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['results'][0]['parser'])")
+  actual_status=$(echo "$row_json" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['results'][0]['status'])")
+
+  if [ "$actual_parser" != "$expected_parser" ]; then
+    echo "FAIL: $fixture routed to parser='$actual_parser', expected '$expected_parser'" >&2
+    exit 1
+  fi
+  echo "    $(basename "$fixture") -> parser=$actual_parser status=$actual_status (documentId=$document_id)"
+}
 
 echo "==> Signing up $EMAIL"
 curl -sS -c "$COOKIE_JAR" -X POST "$BASE_URL/api/auth/sign-up/email" \
@@ -86,5 +121,24 @@ if [ "${WRONGTYPE_STATUS:0:1}" != "4" ]; then
 fi
 echo "    $WRONGTYPE_STATUS as expected: $(cat /tmp/upload-smoke-wrongtype-body.json)"
 rm -f /tmp/upload-smoke-wrongtype-body.json
+
+echo "==> Rejecting an oversized .txt (never falls back to LlamaParse, so it's rejected outright)"
+head -c $((20 * 1024 * 1024 + 1)) /dev/zero > /tmp/upload-smoke-oversize.txt
+OVERSIZE_TXT_STATUS=$(curl -sS -b "$COOKIE_JAR" -o /tmp/upload-smoke-oversize-txt-body.json -w "%{http_code}" \
+  -X POST "$BASE_URL/api/documents" \
+  -F "file=@/tmp/upload-smoke-oversize.txt;type=text/plain")
+rm -f /tmp/upload-smoke-oversize.txt
+if [ "${OVERSIZE_TXT_STATUS:0:1}" != "4" ]; then
+  echo "FAIL: oversized .txt upload returned $OVERSIZE_TXT_STATUS, expected 4xx" >&2
+  cat /tmp/upload-smoke-oversize-txt-body.json >&2
+  exit 1
+fi
+echo "    $OVERSIZE_TXT_STATUS as expected: $(cat /tmp/upload-smoke-oversize-txt-body.json)"
+rm -f /tmp/upload-smoke-oversize-txt-body.json
+
+echo "==> TICKET-32 triage router: local vs. LlamaParse routing"
+assert_parser "$SCRIPT_DIR/../fixtures/sample.csv" "text/csv" "local"
+assert_parser "$SCRIPT_DIR/../fixtures/digital.pdf" "application/pdf" "local"
+assert_parser "$SCRIPT_DIR/../fixtures/scanned.pdf" "application/pdf" "llamaparse"
 
 echo "PASS"
