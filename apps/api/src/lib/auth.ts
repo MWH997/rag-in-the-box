@@ -6,7 +6,12 @@ import { createDb } from "../db/index.js";
 import * as authSchema from "../db/auth-schema.js";
 import type { Env } from "../env.js";
 
-export function createAuth(env: Env) {
+export interface AuthHooks {
+  /** TICKET-23's admin provisioning route captures the reset link here instead of it being emailed (no email provider is configured/in scope). */
+  onSendResetPassword?: (data: { url: string; token: string }) => void;
+}
+
+export function createAuth(env: Env, hooks: AuthHooks = {}) {
   const db = createDb(env.DB);
 
   // Pages (apps/web) and Workers (apps/api) are cross-origin in production, so
@@ -24,6 +29,9 @@ export function createAuth(env: Env) {
     database: drizzleAdapter(db, { provider: "sqlite", schema: authSchema }),
     emailAndPassword: {
       enabled: true,
+      sendResetPassword: async ({ url, token }) => {
+        hooks.onSendResetPassword?.({ url, token });
+      },
     },
     advanced: {
       defaultCookieAttributes: {

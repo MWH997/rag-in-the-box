@@ -6,4 +6,5 @@ export interface Env {
   ALLOWED_ORIGIN: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  ADMIN_TOKEN: string;
 }

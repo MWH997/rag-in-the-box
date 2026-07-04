@@ -1,0 +1,79 @@
+import { Hono } from "hono";
+import { z } from "zod";
+import { eq } from "drizzle-orm";
+import type { Env } from "../env.js";
+import { createAuth } from "../lib/auth.js";
+import { createDb } from "../db/index.js";
+import { member, organization } from "../db/schema.js";
+
+export const adminRoute = new Hono<{ Bindings: Env }>();
+
+const ProvisionRequest = z.object({
+  email: z.email(),
+  orgName: z.string().min(1).max(100),
+});
+
+adminRoute.post("/admin/provision", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  const providedToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : undefined;
+
+  if (!providedToken || providedToken !== c.env.ADMIN_TOKEN) {
+    return c.json({ error: { code: "unauthorized", message: "Invalid admin token" } }, 401);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  const parsed = ProvisionRequest.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      { error: { code: "invalid_request", message: "Invalid request", issues: parsed.error.issues } },
+      422,
+    );
+  }
+
+  let resetLink: string | undefined;
+  const auth = createAuth(c.env, {
+    onSendResetPassword: ({ url }) => {
+      resetLink = url;
+    },
+  });
+
+  // A random throwaway password: this account is only ever accessed via the
+  // one-time reset link below, never by signing in with this password.
+  const temporaryPassword = crypto.randomUUID();
+  const signUpResult = await auth.api.signUpEmail({
+    body: { email: parsed.data.email, password: temporaryPassword, name: parsed.data.orgName },
+  });
+
+  // signUpEmail's session-create hook (src/lib/auth.ts) already provisioned
+  // a default-named organization for the new user; rename it to the
+  // requested orgName instead of duplicating that provisioning logic here.
+  const db = createDb(c.env.DB);
+  const [membership] = await db
+    .select({ organizationId: member.organizationId })
+    .from(member)
+    .where(eq(member.userId, signUpResult.user.id))
+    .limit(1);
+
+  if (membership) {
+    await db
+      .update(organization)
+      .set({ name: parsed.data.orgName })
+      .where(eq(organization.id, membership.organizationId));
+  }
+
+  await auth.api.requestPasswordReset({ body: { email: parsed.data.email } });
+
+  if (!resetLink) {
+    return c.json(
+      { error: { code: "internal_error", message: "Could not generate invite link" } },
+      500,
+    );
+  }
+
+  return c.json({
+    userId: signUpResult.user.id,
+    email: parsed.data.email,
+    organizationId: membership?.organizationId,
+    inviteUrl: resetLink,
+  });
+});
