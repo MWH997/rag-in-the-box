@@ -1,0 +1,10 @@
+{
+  "name": "@rag/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "echo \"apps/web dev server not yet configured (see TICKET-04)\" && exit 1"
+  }
+}

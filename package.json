@@ -1,0 +1,17 @@
+{
+  "name": "rag-in-a-box",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

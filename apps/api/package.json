@@ -1,0 +1,10 @@
+{
+  "name": "@rag/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "echo \"apps/api dev server not yet configured (see TICKET-03)\" && exit 1"
+  }
+}
