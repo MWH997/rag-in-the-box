@@ -1,5 +1,11 @@
 import { sqliteTable, text, integer, primaryKey, index } from "drizzle-orm/sqlite-core";
 
+// BetterAuth's tables (user/session/account/verification/organization/member/
+// invitation) live in ./auth-schema.ts, regenerated via
+// `npx @better-auth/cli generate --config auth.config.ts --output src/db/auth-schema.ts`.
+// Re-exported here so this file stays the single schema entry point per §2.1.
+export * from "./auth-schema.js";
+
 export const documents = sqliteTable(
   "documents",
   {

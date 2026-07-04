@@ -8,11 +8,14 @@
     "dev": "wrangler dev --local"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.6.23",
     "@rag/shared": "*",
+    "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.27"
   },
   "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
     "@cloudflare/workers-types": "^4.20260702.1",
     "drizzle-kit": "^0.31.10",
     "wrangler": "^4.107.0"
