@@ -122,7 +122,7 @@ Secrets go in `.dev.vars` locally and `wrangler secret put` in prod. Never commi
 - **Out of scope:** any application code, wrangler config.
 
 ### TICKET-02 — Tooling: ESLint + Prettier + shared zod package
-- **Status:** [ ] TODO
+- **Status:** [x] DONE
 - **Depends on:** TICKET-01
 - **Goal:** Flat-config ESLint with typescript-eslint across workspaces; Prettier; `packages/shared` exports a placeholder zod schema `HealthResponse = z.object({ ok: z.literal(true) })`.
 - **Verification:** `npm run lint` passes; importing `HealthResponse` from `@rag/shared` typechecks in `apps/api`.
@@ -425,6 +425,7 @@ usage_daily: tenant_id, day (text YYYY-MM-DD), api ('openai'|'deepseek'|'llamapa
 |---|---|---|---|
 | _example_ | 2026-07-04 | scaffolded workspaces | package.json, tsconfig.base.json |
 | TICKET-01 | 2026-07-04 | Root npm-workspaces monorepo scaffold: root package.json (workspaces apps/*, packages/*), tsconfig.base.json (strict, ES2022, bundler resolution), empty apps/web, apps/api, packages/shared workspace packages each with own tsconfig.json + typecheck script, .gitignore, git init. `npm install && npm run typecheck` verified green in all three workspaces. | package.json, tsconfig.base.json, .gitignore, apps/web/package.json, apps/web/tsconfig.json, apps/web/src/index.ts, apps/api/package.json, apps/api/tsconfig.json, apps/api/src/index.ts, packages/shared/package.json, packages/shared/tsconfig.json, packages/shared/src/index.ts |
+| TICKET-02 | 2026-07-04 | Flat-config ESLint (typescript-eslint recommended + eslint-config-prettier) at repo root; Prettier config (product.md excluded from formatting as the controlling doc, not source); `packages/shared` now depends on zod v4 and exports `HealthResponse = z.object({ ok: z.literal(true) })` via `src/health.ts`; `apps/api` added as a workspace dependent and imports `HealthResponse` from `@rag/shared` to prove cross-package typecheck. `npm run lint`, `npm run format`, `npm run typecheck` all green. | eslint.config.js, .prettierrc.json, .prettierignore, package.json, packages/shared/package.json, packages/shared/src/health.ts, packages/shared/src/index.ts, apps/api/package.json, apps/api/src/index.ts |
 
 ---
 
@@ -437,3 +438,5 @@ usage_daily: tenant_id, day (text YYYY-MM-DD), api ('openai'|'deepseek'|'llamapa
 | D3 | 2026-07-04 | Dual tenant scoping (namespace + metadata filter) on Vectorize | Defense in depth; TICKET-27 is the acceptance gate |
 | D4 | 2026-07-04 | All uploads staged in R2 (`rag-uploads`) before LlamaParse; cap raised to 100 MB; streaming end-to-end | Supports 100-page scanned PDFs; avoids Workers 128 MB memory limit; enables retry-without-re-upload and multi-minute parse jobs |
 | D5 | 2026-07-04 | Two-tier parsing: local Worker parsers (unpdf/mammoth/papaparse) first, LlamaParse only for scanned/complex/oversize docs via heuristic router (TICKET-32) | Cuts LlamaParse credit spend to the minority of documents that actually need vision-based parsing; protects fixed-price margins |
+| D6 | 2026-07-04 | `zod` pinned to v4 (`^4.4.3`), not v3 | `better-auth@1.6.23` depends directly on `zod@^4.3.6`; `@hono/zod-validator` supports both `^3.25` and `^4`, so v4 satisfies every consumer with one version |
+| D7 | 2026-07-04 | `product.md` excluded from Prettier's scope (`.prettierignore`) | It is the controlling ticket/worklog document, not source code; Prettier's default Markdown table reformatting produced a large unrelated diff and risks the "never rewrite tickets" rule (§0.8) |

@@ -1,17 +1,23 @@
 {
   "name": "rag-in-a-box",
   "private": true,
+  "type": "module",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --check .",
     "dev:api": "npm run dev --workspace apps/api",
     "dev:web": "npm run dev --workspace apps/web"
   },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "eslint": "^10.6.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.4",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.62.1"
   }
 }
