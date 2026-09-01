@@ -73,7 +73,6 @@ jobs:
   commit-messages:
     name: Conventional commits
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -86,9 +85,9 @@ jobs:
 
       - run: npm ci
 
-      - name: Validate commit messages in this pull request
-        run: >
-          npx commitlint
-          --from ${{ github.event.pull_request.base.sha }}
-          --to ${{ github.event.pull_request.head.sha }}
-          --verbose
+      # Every commit, every time, not a range and not only on a pull request.
+      # This job used to be skipped on push, so work that went straight to main
+      # was never checked at all, and fifteen inherited subjects plus four of
+      # our own sat in the history breaking the rule this repository states.
+      - name: Validate every commit message
+        run: npm run commitlint:all
