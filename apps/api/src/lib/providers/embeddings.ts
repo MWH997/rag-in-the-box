@@ -1,6 +1,6 @@
 import { embeddingFitsIndex, findEmbeddingModel, type EmbeddingProvider } from "@rag/shared";
 
-import { indexDimensions, isOfflineAi, type Env } from "../../env.js";
+import { indexDimensions, ollamaBaseUrl, servedOffline, type Env } from "../../env.js";
 import { offlineEmbed } from "./offline.js";
 import { ProviderError, type EmbeddingResult } from "./types.js";
 
@@ -136,6 +136,71 @@ async function embedOpenAi(env: Env, model: string, inputs: string[]): Promise<E
 }
 
 /**
+ * Embeds through a local Ollama server.
+ *
+ * Ollama serves the OpenAI embeddings shape but has no `dimensions` parameter,
+ * so the model must already emit the index's width. That is why all-minilm is
+ * the default here: 384 dimensions natively, the same as the index. The shared
+ * fit check catches the mismatch before the call, and assertDimensions catches
+ * a model that lies about its own width.
+ */
+async function embedOllama(env: Env, model: string, inputs: string[]): Promise<EmbeddingResult> {
+  const base = ollamaBaseUrl(env);
+  if (!base) {
+    throw new ProviderError(
+      "OLLAMA_BASE_URL is not configured. Start Ollama and set it, or pick another provider.",
+      "embed_missing_ollama_url",
+      400,
+    );
+  }
+  const expected = indexDimensions(env);
+  checkModelFitsIndex("ollama", model, expected);
+
+  let response: Response;
+  try {
+    response = await fetch(`${base}/v1/embeddings`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model, input: inputs }),
+    });
+  } catch (cause) {
+    throw new ProviderError(
+      `Could not reach Ollama at ${base}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      "embed_ollama_unreachable",
+    );
+  }
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new ProviderError(
+      `Ollama embeddings responded ${response.status}. Check the model is pulled: ${detail.slice(0, 200)}`,
+      "embed_ollama_failed",
+    );
+  }
+
+  const payload = (await response.json()) as {
+    data?: { embedding: number[]; index: number }[];
+    usage?: { total_tokens?: number };
+  };
+  const rows = payload.data;
+  if (!Array.isArray(rows) || rows.length !== inputs.length) {
+    throw new ProviderError("Ollama returned an unexpected embedding shape", "embed_bad_shape");
+  }
+
+  const ordered = [...rows].sort((a, b) => a.index - b.index);
+  const vectors = ordered.map((row) => normalize(row.embedding));
+  assertDimensions(vectors, model, expected);
+  return {
+    vectors,
+    model,
+    provider: "ollama",
+    tokens:
+      payload.usage?.total_tokens ??
+      inputs.reduce((sum, text) => sum + Math.ceil(text.length / 4), 0),
+  };
+}
+
+/**
  * Embeds a batch of texts.
  *
  * Callers are responsible for batch size. The ingestion route derives it from
@@ -151,7 +216,8 @@ export async function embed(
   if (inputs.length === 0) {
     return { vectors: [], model, provider, tokens: 0 };
   }
-  if (isOfflineAi(env)) return offlineEmbed(env, model, inputs);
+  if (servedOffline(env, provider)) return offlineEmbed(env, model, inputs);
+  if (provider === "ollama") return embedOllama(env, model, inputs);
   return provider === "openai"
     ? embedOpenAi(env, model, inputs)
     : embedWorkersAi(env, model, inputs);

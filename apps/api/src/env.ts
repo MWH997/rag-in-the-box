@@ -41,6 +41,14 @@ export interface Env {
   OPENAI_API_KEY?: string;
   DEEPSEEK_API_KEY?: string;
   LLAMA_CLOUD_API_KEY?: string;
+  /**
+   * Base URL of a local Ollama server, without the /v1 suffix.
+   *
+   * Setting this is what enables the local provider, so there is deliberately
+   * no default: an unset value means the operator has not opted in, and the
+   * models stay hidden rather than failing against a URL nothing is serving.
+   */
+  OLLAMA_BASE_URL?: string;
 
   /* Demo-only configuration. Ignored unless APP_MODE is "demo". */
   DEMO_TENANT_ID?: string;
@@ -57,6 +65,7 @@ export interface Capabilities {
   openai: boolean;
   deepseek: boolean;
   llamaparse: boolean;
+  ollama: boolean;
   r2: boolean;
 }
 
@@ -66,8 +75,16 @@ export function capabilities(env: Env): Capabilities {
     openai: Boolean(env.OPENAI_API_KEY),
     deepseek: Boolean(env.DEEPSEEK_API_KEY),
     llamaparse: Boolean(env.LLAMA_CLOUD_API_KEY),
+    ollama: Boolean(env.OLLAMA_BASE_URL),
     r2: Boolean(env.BUCKET),
   };
+}
+
+/** Base URL of the local Ollama server, with any trailing slash removed. */
+export function ollamaBaseUrl(env: Env): string | null {
+  const raw = env.OLLAMA_BASE_URL?.trim();
+  if (!raw) return null;
+  return raw.replace(/\/+$/, "");
 }
 
 export function appMode(env: Env): "self-host" | "demo" {
@@ -92,6 +109,19 @@ export function indexDimensions(env: Env): number {
 
 export function isOfflineAi(env: Env): boolean {
   return envBool(env.OFFLINE_AI, false);
+}
+
+/**
+ * Whether the deterministic stand-ins answer, given the provider that was asked for.
+ *
+ * OFFLINE_AI means "nothing is configured, use the stand-ins". Choosing Ollama
+ * is a statement that something now is, so it outranks the flag. Both the
+ * dispatcher and the usage report ask this question, and answering it in one
+ * place is what stops them crediting different models for the same answer.
+ */
+export function servedOffline(env: Env, provider: string): boolean {
+  if (provider === "ollama") return false;
+  return isOfflineAi(env);
 }
 
 export function vectorBackend(env: Env): "vectorize" | "d1" {

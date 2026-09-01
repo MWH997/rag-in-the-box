@@ -14,6 +14,15 @@
 # credentials for Workers AI, so `npx wrangler login` first.
 # OFFLINE_AI=false
 
+# Run real models on your own machine instead, with no account anywhere.
+#
+#   docker compose up -d && npm run ollama:pull
+#
+# Then uncomment the line below, restart the API, and choose the local models
+# in Settings. Ollama outranks OFFLINE_AI, so the stand-ins step aside as soon
+# as a local provider is picked. See docs/local-models.md.
+# OLLAMA_BASE_URL=http://localhost:11434
+
 # Try a provider you have a key for.
 # OPENAI_API_KEY=
 # DEEPSEEK_API_KEY=

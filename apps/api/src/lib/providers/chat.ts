@@ -1,6 +1,6 @@
 import type { ChatProvider } from "@rag/shared";
 
-import { isOfflineAi, type Env } from "../../env.js";
+import { ollamaBaseUrl, servedOffline, type Env } from "../../env.js";
 import { offlineChat } from "./offline.js";
 import {
   ProviderError,
@@ -9,10 +9,38 @@ import {
   type ChatTurn,
 } from "./types.js";
 
+type OpenAiCompatible = "openai" | "deepseek" | "ollama";
+
 const OPENAI_COMPATIBLE_BASE: Record<"openai" | "deepseek", string> = {
   openai: "https://api.openai.com/v1",
   deepseek: "https://api.deepseek.com/v1",
 };
+
+/**
+ * Base URL and credential for a provider that speaks the OpenAI wire format.
+ *
+ * Ollama is the odd one: it is a server the operator runs, so the base URL is
+ * configuration rather than a constant, and it takes no credential. Returning
+ * an explicit null key rather than an empty string keeps the missing-key check
+ * below meaningful for the two providers that do need one.
+ */
+function openAiCompatibleTarget(
+  env: Env,
+  provider: OpenAiCompatible,
+): { base: string | null; apiKey: string | null; keyName: string | null } {
+  if (provider === "ollama") {
+    return {
+      base: ollamaBaseUrl(env) ? `${ollamaBaseUrl(env)}/v1` : null,
+      apiKey: null,
+      keyName: null,
+    };
+  }
+  return {
+    base: OPENAI_COMPATIBLE_BASE[provider],
+    apiKey: (provider === "openai" ? env.OPENAI_API_KEY : env.DEEPSEEK_API_KEY) ?? null,
+    keyName: provider === "openai" ? "OPENAI_API_KEY" : "DEEPSEEK_API_KEY",
+  };
+}
 
 function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4));
@@ -113,26 +141,29 @@ function streamWorkersAi(env: Env, options: ChatStreamOptions): ChatStreamResult
 
 function streamOpenAiCompatible(
   env: Env,
-  provider: "openai" | "deepseek",
+  provider: OpenAiCompatible,
   options: ChatStreamOptions,
 ): ChatStreamResult {
-  const apiKey = provider === "openai" ? env.OPENAI_API_KEY : env.DEEPSEEK_API_KEY;
+  const target = openAiCompatibleTarget(env, provider);
   let promptTokens = promptTokensFor(options.messages);
   let completionTokens = 0;
 
   async function* iterate() {
-    if (!apiKey) {
+    if (provider === "ollama" && !target.base) {
       throw new ProviderError(
-        `${provider === "openai" ? "OPENAI_API_KEY" : "DEEPSEEK_API_KEY"} is not configured`,
-        "chat_missing_key",
+        "OLLAMA_BASE_URL is not configured. Start Ollama and set it, or pick another provider.",
+        "chat_missing_ollama_url",
         400,
       );
     }
+    if (target.keyName && !target.apiKey) {
+      throw new ProviderError(`${target.keyName} is not configured`, "chat_missing_key", 400);
+    }
 
-    const response = await fetch(`${OPENAI_COMPATIBLE_BASE[provider]}/chat/completions`, {
+    const response = await fetch(`${target.base}/chat/completions`, {
       method: "POST",
       headers: {
-        authorization: `Bearer ${apiKey}`,
+        ...(target.apiKey ? { authorization: `Bearer ${target.apiKey}` } : {}),
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -141,7 +172,7 @@ function streamOpenAiCompatible(
         max_tokens: options.maxTokens,
         temperature: options.temperature,
         stream: true,
-        stream_options: { include_usage: true },
+        ...(provider === "ollama" ? {} : { stream_options: { include_usage: true } }),
       }),
       signal: options.signal,
     });
@@ -149,7 +180,9 @@ function streamOpenAiCompatible(
     if (!response.ok || !response.body) {
       const detail = await response.text().catch(() => "");
       throw new ProviderError(
-        `${provider} chat responded ${response.status}: ${detail.slice(0, 300)}`,
+        provider === "ollama"
+          ? `Ollama responded ${response.status}. Check the server is running and the model is pulled: ${detail.slice(0, 200)}`
+          : `${provider} chat responded ${response.status}: ${detail.slice(0, 300)}`,
         "chat_upstream_failed",
       );
     }
@@ -188,7 +221,7 @@ export function streamChat(
   provider: ChatProvider,
   options: ChatStreamOptions,
 ): ChatStreamResult {
-  if (isOfflineAi(env)) return offlineChat(options);
+  if (servedOffline(env, provider)) return offlineChat(options);
   if (provider === "workers-ai") return streamWorkersAi(env, options);
   return streamOpenAiCompatible(env, provider, options);
 }

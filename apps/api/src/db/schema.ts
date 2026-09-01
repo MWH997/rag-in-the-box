@@ -1,3 +1,4 @@
+import { CHAT_PROVIDERS, EMBEDDING_PROVIDERS, TIERS } from "@rag/shared";
 import { blob, index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // BetterAuth's tables (user/session/account/verification/organization/member/
@@ -138,16 +139,16 @@ export const chunkVectors = sqliteTable(
 /** Per-tenant configuration, including the free/paid tier switch. */
 export const tenantSettings = sqliteTable("tenant_settings", {
   tenantId: text("tenant_id").primaryKey(),
-  tier: text("tier", { enum: ["free", "paid"] })
-    .notNull()
-    .default("free"),
-  embeddingProvider: text("embedding_provider", { enum: ["workers-ai", "openai"] })
+  // The three enums below take their values from the shared registry rather
+  // than repeating them. They are type-level only: SQLite stores plain text and
+  // the generated DDL carries no constraint, so adding a provider needs no
+  // migration, and taking one away needs a data fix rather than a schema one.
+  tier: text("tier", { enum: TIERS }).notNull().default("free"),
+  embeddingProvider: text("embedding_provider", { enum: EMBEDDING_PROVIDERS })
     .notNull()
     .default("workers-ai"),
   embeddingModel: text("embedding_model").notNull().default("@cf/baai/bge-small-en-v1.5"),
-  chatProvider: text("chat_provider", { enum: ["workers-ai", "deepseek", "openai"] })
-    .notNull()
-    .default("workers-ai"),
+  chatProvider: text("chat_provider", { enum: CHAT_PROVIDERS }).notNull().default("workers-ai"),
   chatModel: text("chat_model").notNull().default("@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
   systemPrompt: text("system_prompt").notNull().default(""),
   updatedAt: integer("updated_at")

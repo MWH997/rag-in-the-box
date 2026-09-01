@@ -10,7 +10,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { and, eq, inArray } from "drizzle-orm";
 
-import { isOfflineAi } from "../env.js";
+import { servedOffline } from "../env.js";
 import { chatLogs, chunks, documents } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
 import { buildContextBlock, buildUserTurn, trimHistory } from "../lib/prompt.js";
@@ -157,9 +157,9 @@ chatRoute.post("/chat", async (c) => {
       }
 
       const usage = result.usage();
-      // Nothing was billed when the offline provider answered, so the report
-      // names it rather than crediting a model that never ran.
-      const offline = isOfflineAi(c.env);
+      // Report what actually answered, asking the same question the dispatcher
+      // asked, so the two cannot credit different models for one answer.
+      const offline = servedOffline(c.env, settings.chatProvider);
       const model = offline ? undefined : findChatModel(settings.chatProvider, settings.chatModel);
       const reportedModel = offline ? "offline development provider" : settings.chatModel;
       const totalMs = Date.now() - startedAt;

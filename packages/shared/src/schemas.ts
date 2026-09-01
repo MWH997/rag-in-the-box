@@ -231,6 +231,7 @@ export const TenantSettings = z.object({
     openai: z.boolean(),
     deepseek: z.boolean(),
     llamaparse: z.boolean(),
+    ollama: z.boolean(),
     r2: z.boolean(),
   }),
   /** True when stored vectors were produced by a different embedding model. */

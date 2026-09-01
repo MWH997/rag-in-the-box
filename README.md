@@ -58,9 +58,18 @@ Open http://localhost:5173 and create a workspace.
 Local development runs entirely offline. Vectors live in the local database
 instead of Vectorize, and the models are replaced with deterministic stand-ins
 so retrieval, streaming, citations and usage accounting all exercise the same
-code paths without an API key. See
-[docs/architecture.md](docs/architecture.md#running-without-an-account) for what
-that does and does not prove.
+code paths without an API key.
+
+For real models with still no account anywhere, run Ollama:
+
+```bash
+docker compose up -d
+npm run ollama:pull
+```
+
+Set `OLLAMA_BASE_URL` in `apps/api/.dev.vars`, then pick the local models in
+Settings. Details, and what each setup does and does not prove, are in
+[docs/local-models.md](docs/local-models.md).
 
 ## Hosting your own
 
@@ -88,8 +97,10 @@ on your own domain: **[docs/hosting.md](docs/hosting.md)**.
 | Vectorize  | 5M stored vector dimensions                       | about 13,000 passages at 384 dimensions |
 | Pages      | unlimited requests, 500 builds a month            | plenty                                  |
 
-The usage screen tracks your own consumption against these numbers. Where each
-one comes from, and what happens when you cross it, is in
+Cloudflare began enforcing the D1 row limits on 1 September 2026. Past either
+one, D1 queries fail until midnight UTC. The usage screen measures your actual
+row consumption rather than estimating it, so you can see the line coming.
+Where each number comes from, and what happens when you cross it, is in
 [docs/free-tier.md](docs/free-tier.md).
 
 ## Paid tier
@@ -124,7 +135,7 @@ apps/web        React on Cloudflare Pages. Reader, chat, usage, settings.
 packages/shared Contracts and the chunker, shared by both.
 scripts         Deployment and demo seeding.
 qa              The layout audit used to check every route at six widths.
-docs            Architecture, hosting, free tier, demo, security.
+docs            Architecture, hosting, free tier, local models, demo, security.
 ```
 
 ## Commands
@@ -132,6 +143,8 @@ docs            Architecture, hosting, free tier, demo, security.
 | Command                         | What it does                                    |
 | ------------------------------- | ----------------------------------------------- |
 | `npm run dev`                   | Both servers together                           |
+| `npm run ollama:up`             | Start a local model server in Docker            |
+| `npm run ollama:pull`           | Fetch the local models                          |
 | `npm run verify`                | Typecheck, lint and tests, the same set CI runs |
 | `npm test`                      | Unit tests                                      |
 | `npm run db:migrate:local`      | Apply migrations to the local database          |

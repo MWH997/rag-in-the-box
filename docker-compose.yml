@@ -1,0 +1,39 @@
+# Local model server.
+#
+# The project runs with no account anywhere by default, using deterministic
+# stand-ins for the models. Those prove the wiring: retrieval, streaming,
+# citations and accounting all take the same code path. They cannot tell you
+# whether the answers are any good.
+#
+# This brings up Ollama so the same code runs against real models on your own
+# machine. Nothing here is required, and nothing here is used in a deployment.
+#
+#   docker compose up -d
+#   npm run ollama:pull
+#
+# Then set OLLAMA_BASE_URL in apps/api/.dev.vars and pick the local models in
+# the settings screen. See docs/local-models.md.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rib-ollama
+    ports:
+      # 11434 is Ollama's own default, so an Ollama installed directly on the
+      # host serves the same URL and this file becomes unnecessary.
+      - "11434:11434"
+    volumes:
+      # Named volume so pulled models survive `docker compose down`. They are
+      # large, and re-pulling them on every restart is the main thing that makes
+      # a local setup annoying enough to abandon.
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  ollama-models:

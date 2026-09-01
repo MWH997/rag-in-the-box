@@ -10,10 +10,19 @@
 /** Default dimension of the Vectorize index. Overridable at deploy time. */
 export const DEFAULT_VECTOR_DIMENSIONS = 384;
 
-export const EMBEDDING_PROVIDERS = ["workers-ai", "openai"] as const;
+/**
+ * "ollama" is a local server, not a hosted service.
+ *
+ * It speaks the OpenAI-compatible API on a base URL of the operator's choosing,
+ * which is what lets the same code path serve it. It exists so the project can
+ * be run and judged end to end with real models and no account anywhere, which
+ * the deterministic stand-ins cannot do: those prove the wiring, not the
+ * answers. Nothing about it is billed, so every rate below is zero.
+ */
+export const EMBEDDING_PROVIDERS = ["workers-ai", "openai", "ollama"] as const;
 export type EmbeddingProvider = (typeof EMBEDDING_PROVIDERS)[number];
 
-export const CHAT_PROVIDERS = ["workers-ai", "deepseek", "openai"] as const;
+export const CHAT_PROVIDERS = ["workers-ai", "deepseek", "openai", "ollama"] as const;
 export type ChatProvider = (typeof CHAT_PROVIDERS)[number];
 
 export interface EmbeddingModel {
@@ -95,6 +104,26 @@ export const EMBEDDING_MODELS: Record<EmbeddingProvider, EmbeddingModel[]> = {
       supportsReducedDimensions: true,
       neuronsPerMillionInput: 0,
       freeTier: false,
+    },
+  ],
+  ollama: [
+    {
+      id: "all-minilm",
+      label: "all-MiniLM (local)",
+      note: "384 dimensions natively, the same shape as the default index. Needs Ollama running.",
+      nativeDimensions: 384,
+      supportsReducedDimensions: false,
+      neuronsPerMillionInput: 0,
+      freeTier: true,
+    },
+    {
+      id: "nomic-embed-text",
+      label: "Nomic Embed Text (local)",
+      note: "768 dimensions. Better recall, needs a 768-dimension index.",
+      nativeDimensions: 768,
+      supportsReducedDimensions: false,
+      neuronsPerMillionInput: 0,
+      freeTier: true,
     },
   ],
 };
@@ -194,6 +223,28 @@ export const CHAT_MODELS: Record<ChatProvider, ChatModel[]> = {
       usdPerMillionInput: 2,
       usdPerMillionOutput: 8,
       freeTier: false,
+    },
+  ],
+  ollama: [
+    {
+      id: "llama3.2:3b",
+      label: "Llama 3.2 3B (local)",
+      note: "Runs on a laptop. Good enough to judge retrieval and citations.",
+      neuronsPerMillionInput: 0,
+      neuronsPerMillionOutput: 0,
+      usdPerMillionInput: 0,
+      usdPerMillionOutput: 0,
+      freeTier: true,
+    },
+    {
+      id: "qwen2.5:7b",
+      label: "Qwen 2.5 7B (local)",
+      note: "Better answers, wants about 8 GB of memory.",
+      neuronsPerMillionInput: 0,
+      neuronsPerMillionOutput: 0,
+      usdPerMillionInput: 0,
+      usdPerMillionOutput: 0,
+      freeTier: true,
     },
   ],
 };

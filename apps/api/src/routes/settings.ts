@@ -7,11 +7,31 @@ import {
 } from "@rag/shared";
 import { Hono } from "hono";
 
-import { capabilities, indexDimensions, type Env } from "../env.js";
+import { capabilities, indexDimensions, type Capabilities, type Env } from "../env.js";
 import { loadSettings, saveSettings, toApiSettings } from "../lib/settings.js";
 import type { AppEnv } from "../middleware/tenant.js";
 
 export const settingsRoute = new Hono<AppEnv>();
+
+/** What an operator has to configure to unlock each provider. */
+const REQUIRES: Record<string, string | undefined> = {
+  openai: "OPENAI_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+  ollama: "OLLAMA_BASE_URL",
+};
+
+function embeddingAvailable(caps: Capabilities, provider: string): boolean {
+  if (provider === "openai") return caps.openai;
+  if (provider === "ollama") return caps.ollama;
+  return caps.workersAi;
+}
+
+function chatAvailable(caps: Capabilities, provider: string): boolean {
+  if (provider === "openai") return caps.openai;
+  if (provider === "deepseek") return caps.deepseek;
+  if (provider === "ollama") return caps.ollama;
+  return caps.workersAi;
+}
 
 /**
  * The catalogue the settings screen renders.
@@ -29,8 +49,8 @@ function catalogue(env: Env) {
     indexDimensions: dimensions,
     embedding: Object.entries(EMBEDDING_MODELS).map(([provider, models]) => ({
       provider,
-      available: provider === "openai" ? caps.openai : caps.workersAi,
-      requires: provider === "openai" ? "OPENAI_API_KEY" : null,
+      available: embeddingAvailable(caps, provider),
+      requires: REQUIRES[provider] ?? null,
       models: models.map((model) => ({
         id: model.id,
         label: model.label,
@@ -42,18 +62,8 @@ function catalogue(env: Env) {
     })),
     chat: Object.entries(CHAT_MODELS).map(([provider, models]) => ({
       provider,
-      available:
-        provider === "openai"
-          ? caps.openai
-          : provider === "deepseek"
-            ? caps.deepseek
-            : caps.workersAi,
-      requires:
-        provider === "openai"
-          ? "OPENAI_API_KEY"
-          : provider === "deepseek"
-            ? "DEEPSEEK_API_KEY"
-            : null,
+      available: chatAvailable(caps, provider),
+      requires: REQUIRES[provider] ?? null,
       models: models.map((model) => ({
         id: model.id,
         label: model.label,
