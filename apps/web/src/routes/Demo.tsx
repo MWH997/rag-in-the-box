@@ -120,6 +120,12 @@ export function Demo() {
               <span className="hidden sm:inline">Reset</span>
             </Button>
           )}
+          <Link
+            to="/docs"
+            className="hidden shrink-0 rounded-lg px-3 py-2 text-[0.8125rem] text-muted transition-colors hover:bg-sunken hover:text-ink sm:block"
+          >
+            Docs
+          </Link>
           <a
             href={REPO_URL}
             target="_blank"

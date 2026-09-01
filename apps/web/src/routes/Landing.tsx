@@ -62,6 +62,12 @@ export function Landing() {
             <Wordmark />
           </Link>
           <nav className="ml-auto hidden items-center gap-1 md:flex">
+            <Link
+              to="/docs"
+              className="rounded-lg px-3 py-2 text-[0.8125rem] text-muted transition-colors hover:bg-raised hover:text-ink"
+            >
+              Docs
+            </Link>
             {[
               { href: "#how", label: "How it works" },
               { href: "#free", label: "Free tier" },

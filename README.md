@@ -7,8 +7,9 @@ came from, highlighted in the original document beside it.
 It runs on the Cloudflare free plan. Not "free to try", not "free for a small
 project". The whole thing, on the permanent free tier, with no credit card.
 
-**[Live demo](https://rib.mwhassan.com)** · [Host it yourself](docs/hosting.md) ·
-[How it works](docs/architecture.md) · [What free buys you](docs/free-tier.md)
+**[Live demo](https://rib.mwhassan.com)** · [Documentation](https://rib.mwhassan.com/docs) ·
+[Host it yourself](docs/hosting.md) · [How it works](docs/architecture.md) ·
+[What free buys you](docs/free-tier.md)
 
 ---
 
@@ -136,22 +137,25 @@ packages/shared Contracts and the chunker, shared by both.
 scripts         Deployment and demo seeding.
 qa              Layout, accessibility and contract audits, and the runner
                 that starts everything and fails the build on a finding.
-docs            Architecture, hosting, free tier, local models, demo, security.
+docs            Architecture, the API, hosting, free tier, local models,
+                the demo and security. The site renders these same files.
 ```
 
 ## Commands
 
-| Command                         | What it does                                         |
-| ------------------------------- | ---------------------------------------------------- |
-| `npm run dev`                   | Both servers together                                |
-| `npm run ollama:up`             | Start a local model server in Docker                 |
-| `npm run ollama:pull`           | Fetch the local models                               |
-| `npm run verify`                | Typecheck, lint, format and tests                    |
-| `npm run qa`                    | Layout, accessibility and API contract, in a browser |
-| `npm test`                      | Unit tests                                           |
-| `npm run db:migrate:local`      | Apply migrations to the local database               |
-| `apps/api/scripts/smoke.sh`     | End to end check against a running local API         |
-| `./scripts/deploy.sh --dry-run` | Show what a deployment would do                      |
+| Command                          | What it does                                           |
+| -------------------------------- | ------------------------------------------------------ |
+| `npm run dev`                    | Both servers together                                  |
+| `npm run ollama:up`              | Start a local model server in Docker                   |
+| `npm run ollama:pull`            | Fetch the local models                                 |
+| `npm run verify`                 | Typecheck, lint, format and tests                      |
+| `npm run qa`                     | Prose, secrets, API contract, layout and accessibility |
+| `npm run prose`                  | Check the writing for machine-sounding tics            |
+| `./scripts/check-credentials.sh` | Confirm every credential in .env works                 |
+| `npm test`                       | Unit tests                                             |
+| `npm run db:migrate:local`       | Apply migrations to the local database                 |
+| `apps/api/scripts/smoke.sh`      | End to end check against a running local API           |
+| `./scripts/deploy.sh --dry-run`  | Show what a deployment would do                        |
 
 ## Contributing
 

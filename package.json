@@ -35,7 +35,9 @@
     "ollama:up": "docker compose up -d",
     "ollama:pull": "./scripts/ollama-pull.sh",
     "ollama:down": "docker compose down",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "prose": "node qa/prose.mjs",
+    "prose:fix": "node qa/prose.mjs --fix"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",

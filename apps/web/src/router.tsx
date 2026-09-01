@@ -11,6 +11,7 @@ import { Landing } from "./routes/Landing";
  * first paint small on a slow connection.
  */
 const Demo = lazy(() => import("./routes/Demo").then((module) => ({ default: module.Demo })));
+const Docs = lazy(() => import("./routes/Docs").then((module) => ({ default: module.Docs })));
 const Login = lazy(() => import("./routes/Login").then((module) => ({ default: module.Login })));
 const ResetPassword = lazy(() =>
   import("./routes/ResetPassword").then((module) => ({ default: module.ResetPassword })),
@@ -47,6 +48,8 @@ function suspend(node: ReactNode): ReactNode {
 export const router = createBrowserRouter([
   { path: "/", element: <Landing /> },
   { path: "/demo", element: suspend(<Demo />) },
+  { path: "/docs", element: suspend(<Docs />) },
+  { path: "/docs/:slug", element: suspend(<Docs />) },
   { path: "/login", element: suspend(<Login />) },
   { path: "/reset-password", element: suspend(<ResetPassword />) },
   {

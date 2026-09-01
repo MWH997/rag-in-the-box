@@ -10,4 +10,12 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  server: {
+    fs: {
+      // The docs route reads docs/*.md from the repository root so the site and
+      // the repository cannot disagree. The dev server refuses to serve files
+      // above its own root without this.
+      allow: [fileURLToPath(new URL("../..", import.meta.url))],
+    },
+  },
 });

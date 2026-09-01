@@ -41,7 +41,15 @@ const API_URL = `http://localhost:${API_PORT}`;
 const WEB_URL = `http://localhost:${WEB_PORT}`;
 
 const WIDTHS = [320, 390, 768, 1024, 1440, 1920];
-const PUBLIC_ROUTES = ["/", "/demo", "/login", "/reset-password", "/nonexistent"];
+const PUBLIC_ROUTES = [
+  "/",
+  "/demo",
+  "/docs",
+  "/docs/hosting",
+  "/login",
+  "/reset-password",
+  "/nonexistent",
+];
 const APP_ROUTES = ["/app", "/app/chat", "/app/usage", "/app/settings"];
 const ADMIN_TOKEN = "development-only-admin-token";
 
@@ -145,6 +153,9 @@ run("npx", ["vite", "preview", "--port", String(WEB_PORT), "--strictPort"], {
 await waitFor(WEB_URL, "the interface");
 
 /* 1. Nothing secret in the bundle -------------------------------------------- */
+
+console.log("qa: checking the prose");
+await once("node", [join(here, "prose.mjs")]);
 
 console.log("qa: scanning the build for secrets");
 await once("node", [join(here, "secret-scan.mjs"), "--dist", join(root, "apps", "web", "dist")]);

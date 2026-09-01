@@ -7,7 +7,7 @@ import { UnsupportedLocalParse } from "./errors.js";
 // `arrayBuffer` are supplied below since mammoth's own input handling
 // differs by environment: Node (this file's vitest run) reads
 // `options.buffer` directly, while the "browser" build Wrangler's bundler
-// substitutes for Worker code reads `options.arrayBuffer` — each side
+// substitutes for Worker code reads `options.arrayBuffer`, each side
 // ignores the key it doesn't use, so passing both works in either runtime
 // without branching on environment.
 interface MammothMarkdownInput {
