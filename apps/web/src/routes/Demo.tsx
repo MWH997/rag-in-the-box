@@ -12,15 +12,31 @@ import { QuotaBanner } from "@/components/QuotaBanner";
 import { SplitView, type Pane } from "@/components/SplitView";
 import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { brand } from "@/lib/brand";
 import { api } from "@/lib/api";
 
-const REPO_URL = "https://github.com/MWH997/rag-in-the-box";
+const REPO_URL = brand.repoUrl;
 
-const SUGGESTIONS = [
+/**
+ * Opening questions for the curated document.
+ *
+ * These are about whatever was seeded, so a deployment that seeds something
+ * else needs its own. Set VITE_DEMO_SUGGESTIONS to a list separated by a pipe.
+ * The defaults suit the NIST Cybersecurity Framework that scripts/seed-demo.ts
+ * loads; asking that document about safety requirements or deadlines produces
+ * a shrug, which is a poor first impression to hand a visitor.
+ */
+const SUGGESTIONS = (import.meta.env.VITE_DEMO_SUGGESTIONS ?? "")
+  .split("|")
+  .map((question) => question.trim())
+  .filter((question) => question.length > 0)
+  .slice(0, 6);
+
+const DEFAULT_SUGGESTIONS = [
   "What is this document about?",
-  "Summarise the main responsibilities it describes",
-  "What does it say about safety requirements?",
-  "List the key dates or deadlines it mentions",
+  "What are the core functions it defines?",
+  "How does it say to measure progress?",
+  "Who is it written for?",
 ];
 
 /**
@@ -155,7 +171,7 @@ export function Demo() {
             streaming={workspace.streaming}
             stage={workspace.stage}
             activeCitation={workspace.activeCitation}
-            suggestions={SUGGESTIONS}
+            suggestions={SUGGESTIONS.length > 0 ? SUGGESTIONS : DEFAULT_SUGGESTIONS}
             disabled={quotaBlocked || workspace.documents.length === 0}
             disabledReason={
               quotaBlocked

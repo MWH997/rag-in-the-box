@@ -16,8 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppMode } from "@/hooks/use-app-mode";
+import { brand, demoHost, setupMailto } from "@/lib/brand";
 
-const REPO_URL = "https://github.com/MWH997/rag-in-the-box";
+const REPO_URL = brand.repoUrl;
 
 const STEPS = [
   {
@@ -303,49 +304,48 @@ cp .env.example .env
                 </div>
               </Card>
 
-              <Card className="flex h-full min-w-0 flex-col border-accent/40">
-                <CardHeader>
-                  <Badge tone="accent" className="w-fit">
-                    Done for you
-                  </Badge>
-                  <p className="pt-2 text-3xl font-semibold tracking-[-0.02em] text-ink">
-                    $300
-                    <span className="ml-2 align-middle text-sm font-normal text-muted">
-                      one off
-                    </span>
-                  </p>
-                  <p className="text-sm text-muted">
-                    Paid once, when the thing is working. No retainer.
-                  </p>
-                </CardHeader>
-                <CardBody className="flex-1">
-                  <ul className="space-y-2.5">
-                    {[
-                      "Set up on your own Cloudflare account, which you keep",
-                      "Your domain, your keys, your data",
-                      "Your first documents loaded and checked",
-                      "Tuned to stay inside the free allowances for your volume",
-                      "A walkthrough call, and two weeks of questions answered",
-                    ].map((item) => (
-                      <li key={item} className="flex min-w-0 items-start gap-2.5">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
-                        <span className="text-sm leading-relaxed text-muted">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardBody>
-                <div className="p-4 pt-0 sm:p-5 sm:pt-0">
-                  <a
-                    href="mailto:hello@mwhassan.com?subject=RAG%20in%20the%20Box%20setup"
-                    className="block"
-                  >
-                    <Button className="w-full">Ask me to set it up</Button>
-                  </a>
-                  <p className="mt-3 text-center text-[0.75rem] text-faint">
-                    If it cannot be made to work on your setup, you pay nothing.
-                  </p>
-                </div>
-              </Card>
+              {brand.setup.enabled && (
+                <Card className="flex h-full min-w-0 flex-col border-accent/40">
+                  <CardHeader>
+                    <Badge tone="accent" className="w-fit">
+                      Done for you
+                    </Badge>
+                    <p className="pt-2 text-3xl font-semibold tracking-[-0.02em] text-ink">
+                      {brand.setup.price}
+                      <span className="ml-2 align-middle text-sm font-normal text-muted">
+                        one off
+                      </span>
+                    </p>
+                    <p className="text-sm text-muted">
+                      Paid once, when the thing is working. No retainer.
+                    </p>
+                  </CardHeader>
+                  <CardBody className="flex-1">
+                    <ul className="space-y-2.5">
+                      {[
+                        "Set up on your own Cloudflare account, which you keep",
+                        "Your domain, your keys, your data",
+                        "Your first documents loaded and checked",
+                        "Tuned to stay inside the free allowances for your volume",
+                        "A walkthrough call, and two weeks of questions answered",
+                      ].map((item) => (
+                        <li key={item} className="flex min-w-0 items-start gap-2.5">
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
+                          <span className="text-sm leading-relaxed text-muted">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardBody>
+                  <div className="p-4 pt-0 sm:p-5 sm:pt-0">
+                    <a href={setupMailto} className="block">
+                      <Button className="w-full">Ask me to set it up</Button>
+                    </a>
+                    <p className="mt-3 text-center text-[0.75rem] text-faint">
+                      If it cannot be made to work on your setup, you pay nothing.
+                    </p>
+                  </div>
+                </Card>
+              )}
             </div>
           </div>
         </section>
@@ -377,10 +377,10 @@ cp .env.example .env
           <p className="text-center text-[0.8125rem] text-faint sm:text-left">
             MIT licensed. Built by{" "}
             <a
-              href="https://mwhassan.com"
+              href={brand.author.url}
               className="text-muted underline underline-offset-2 hover:text-ink"
             >
-              Muhammad Hassan
+              {brand.author.name}
             </a>
             .
           </p>
@@ -438,9 +438,7 @@ function HeroPreview() {
         <span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
         <span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
         <span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
-        <span className="ml-2 truncate font-mono text-[0.6875rem] text-faint">
-          rib.mwhassan.com
-        </span>
+        <span className="ml-2 truncate font-mono text-[0.6875rem] text-faint">{demoHost}</span>
       </div>
       <div className="grid sm:grid-cols-2">
         <div className="min-w-0 border-line p-4 sm:border-r">
