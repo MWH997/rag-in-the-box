@@ -108,3 +108,11 @@ docs            Architecture, hosting, free tier, demo, security
 Anything shared by both halves goes in `packages/shared`. The chunker lives
 there because the browser and the Worker both run it, and identical boundaries
 matter.
+
+## Pinned dependencies
+
+**TypeScript is held at 5.9.** The code compiles clean under 7.0, but
+`typescript-eslint` refuses to load against it and fails the lint step. Raise it
+once that support lands. Two fixes made for 7.0 are already in: `app.on` takes
+its path as an array, and the auth handler is `async` so both branches return
+the same type.
