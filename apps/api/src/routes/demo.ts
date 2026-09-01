@@ -32,11 +32,15 @@ demoRoute.get("/demo/status", async (c) => {
       },
       featuredDocumentId: null,
       uploadsEnabled: true,
+      maxUploadBytes: 0,
+      retentionHours: 0,
+      uploadsRemaining: 0,
+      hasOwnDocuments: false,
     });
   }
 
   const limits = demoLimits(c.env);
-  const [visitor, global] = await readQuota(db, [
+  const [visitor, global, visitorUploads] = await readQuota(db, [
     {
       scope: "visitor",
       key: tenant.quotaKeys.visitor,
@@ -44,6 +48,12 @@ demoRoute.get("/demo/status", async (c) => {
       limit: limits.visitorChats,
     },
     { scope: "global", key: tenant.quotaKeys.global, metric: "chat", limit: limits.globalChats },
+    {
+      scope: "visitor",
+      key: tenant.quotaKeys.visitor,
+      metric: "upload",
+      limit: limits.visitorUploads,
+    },
   ]);
 
   const [featured] = await db
@@ -51,6 +61,14 @@ demoRoute.get("/demo/status", async (c) => {
     .from(documents)
     .where(and(eq(documents.tenantId, demoTenantId(c.env)), eq(documents.status, "active")))
     .orderBy(asc(documents.createdAt))
+    .limit(1);
+
+  // Whether this visitor has anything of their own decides if the export
+  // control is worth showing at all.
+  const [own] = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(and(eq(documents.tenantId, tenant.tenantId), eq(documents.status, "active")))
     .limit(1);
 
   const globalExhausted = !global?.allowed;
@@ -70,5 +88,9 @@ demoRoute.get("/demo/status", async (c) => {
     },
     featuredDocumentId: featured?.id ?? null,
     uploadsEnabled: limits.uploadsEnabled,
+    maxUploadBytes: limits.maxUploadBytes,
+    retentionHours: limits.retentionHours,
+    uploadsRemaining: Math.max(0, limits.visitorUploads - (visitorUploads?.used ?? 0)),
+    hasOwnDocuments: Boolean(own),
   });
 });

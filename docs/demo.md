@@ -14,7 +14,7 @@ installing anything.
 | Accounts              | email and password | none                                       |
 | Workspace             | one per account    | one per browser, plus a shared curated one |
 | Settings              | editable           | fixed                                      |
-| Uploads               | yes                | off by default                             |
+| Uploads               | unlimited          | one small file each, deleted after a while |
 | Daily limits          | your own           | per visitor and deployment wide            |
 | Provisioning endpoint | available          | refused                                    |
 | Auth routes           | mounted            | not mounted                                |
@@ -95,20 +95,53 @@ same script from CI. It requires typing `deploy` to confirm and reads
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from the `demo` environment's
 secrets. It never runs on a push.
 
-## Letting visitors upload
+## Visitor uploads
 
-Off by default. Turning it on means:
+The curated document shows the product answers questions. It cannot show that it
+answers questions about the reader's own document, which is the only question
+they actually have. So each visitor may add one small file.
 
-- Every visitor's document occupies Vectorize storage, which is the allowance
-  most likely to run out, and storage does not reset daily.
-- Documents accumulate until something removes them.
-- The content is whatever people upload.
+The defaults:
 
-If you turn it on, set `DEMO_VISITOR_UPLOADS_PER_DAY` and
-`DEMO_GLOBAL_UPLOADS_PER_DAY` to small numbers, watch the stored dimensions
-figure, and have a plan for clearing old workspaces. Vectorize also caps an
-index at 1,000 namespaces on the free plan, which is a ceiling on how many
-visitor workspaces can exist at once.
+| Setting                        | Default | Why                                          |
+| ------------------------------ | ------- | -------------------------------------------- |
+| `DEMO_VISITOR_UPLOADS_PER_DAY` | 1       | Enough to answer the question they came with |
+| `DEMO_GLOBAL_UPLOADS_PER_DAY`  | 30      | Caps the day's storage growth                |
+| `DEMO_MAX_UPLOAD_BYTES`        | 2 MB    | A few pages is enough to watch the pipeline  |
+| `DEMO_RETENTION_HOURS`         | 3       | Long enough to try it and export it          |
+
+### Why the retention exists
+
+Vectorize storage does not reset daily. The free index holds roughly 13,000
+passages at 384 dimensions. At thirty uploads a day of fifty passages each,
+uploads left in place would fill it permanently in about nine days, and the only
+fix would be deleting vectors by hand. The free plan also caps an index at 1,000
+namespaces, and each visitor workspace is one namespace.
+
+So the purge is not tidiness, it is what makes the feature affordable. The cron
+trigger in `apps/api/wrangler.toml` runs it hourly. Raising the retention without
+redoing that arithmetic will fill the index.
+
+The purge deletes vectors before rows. A vector outliving its chunk row would be
+unreachable and unremovable, because the ids to delete it by are the chunk ids.
+Losing the row first is merely untidy, so the order fails in the safe direction.
+
+Only workspaces whose id starts with `demo-v-` are touched. The curated
+workspace does not match that prefix, which is asserted in a test, because
+deleting the featured document would silently empty the demo.
+
+### What the visitor is told
+
+The retention appears above the upload control before they choose a file, not
+after. Next to it sits an export button, which hands back a JSON file holding
+the extracted text, the passage boundaries and the vectors. That is the whole
+index, in a form that can be loaded somewhere else. A demo that takes your work
+and deletes it is a worse advertisement than no demo.
+
+### Turning it off
+
+Set `DEMO_UPLOADS_ENABLED=false`. The curated document stays, the upload control
+disappears, and the API refuses uploads before consuming any allowance.
 
 ## Keeping the demo safe
 
@@ -121,6 +154,10 @@ visitor workspaces can exist at once.
   to attack.
 - `.env.demo` is ignored by git, and the deployment script refuses to publish
   with the offline development switch set.
+- Visitor uploads are deleted on a schedule, so files from strangers are not
+  accumulated. An export is offered before that happens.
+- A visitor's export contains only their own workspace. The curated document
+  belongs to the deployment and is excluded.
 
 ## Running the demo locally
 

@@ -337,6 +337,14 @@ export const DemoStatusResponse = z.object({
   quota: QuotaState,
   featuredDocumentId: z.string().nullable(),
   uploadsEnabled: z.boolean(),
+  /** Largest file the demo accepts, which is smaller than the tier's own limit. */
+  maxUploadBytes: z.number().int().nonnegative(),
+  /** Hours before an upload is deleted. Told to the visitor before they upload. */
+  retentionHours: z.number().int().nonnegative(),
+  /** Uploads this visitor has left today. */
+  uploadsRemaining: z.number().int().nonnegative(),
+  /** True when this visitor has something of their own worth exporting. */
+  hasOwnDocuments: z.boolean(),
 });
 export type DemoStatusResponse = z.infer<typeof DemoStatusResponse>;
 

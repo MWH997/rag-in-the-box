@@ -11,7 +11,7 @@ import { Hono, type Context } from "hono";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import type { AppEnv } from "../middleware/tenant.js";
-import { quotaChecksFor } from "../middleware/tenant.js";
+import { demoLimits, quotaChecksFor } from "../middleware/tenant.js";
 import { chunks, documentSegments, documents } from "../db/schema.js";
 import { batchForTable } from "../lib/d1.js";
 import { HttpError } from "../lib/errors.js";
@@ -108,6 +108,27 @@ documentsRoute.post("/documents", async (c) => {
       "upload_too_large",
       `This file is larger than the ${Math.round(limits.maxUploadBytes / 1024 / 1024)} MB limit for the ${settings.tier} tier.`,
     );
+  }
+
+  // The demo has its own, tighter ceiling and its own off switch. Both are
+  // checked before any allowance is consumed, so a refused upload costs the
+  // visitor nothing.
+  if (tenant.mode === "demo") {
+    const demo = demoLimits(c.env);
+    if (!demo.uploadsEnabled) {
+      throw new HttpError(
+        403,
+        "demo_uploads_disabled",
+        "Uploads are turned off on this demo right now. The featured document is still there to ask about.",
+      );
+    }
+    if (body.sizeBytes > demo.maxUploadBytes) {
+      throw new HttpError(
+        413,
+        "demo_upload_too_large",
+        `The demo takes files up to ${Math.round(demo.maxUploadBytes / 1024 / 1024)} MB. A few pages is enough to see the pipeline work.`,
+      );
+    }
   }
   if (body.extractor !== "browser" && !limits.serverSideParsing) {
     throw new HttpError(

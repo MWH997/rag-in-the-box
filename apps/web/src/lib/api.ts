@@ -119,5 +119,27 @@ export const api = {
     request<SettingsResponse>("/api/settings", { method: "PATCH", body: JSON.stringify(body) }),
   usage: () => request<UsageResponse>("/api/usage"),
   demoStatus: () => request<DemoStatusResponse>("/api/demo/status"),
+  /**
+   * The export as a blob, so the browser can hand it to the visitor as a file.
+   *
+   * It does not go through `request`, which parses JSON into an object. The
+   * export can be several megabytes and parsing it only to serialise it again
+   * would double the memory for no gain.
+   */
+  exportBlob: async (): Promise<Blob> => {
+    const response = await fetch(`${API_URL}/api/export`, { credentials: "include" });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error?: string;
+        code?: string;
+      } | null;
+      throw new ApiError(
+        response.status,
+        body?.code ?? "export_failed",
+        body?.error ?? "The export could not be prepared.",
+      );
+    }
+    return response.blob();
+  },
   reindex: () => request<{ reindexed: number }>("/api/documents/reindex", { method: "POST" }),
 };

@@ -9,12 +9,14 @@ import { HttpError } from "./lib/errors.js";
 import { isDailyLimitError } from "./lib/d1-meter.js";
 import { ProviderError } from "./lib/providers/index.js";
 import { createAuth } from "./lib/auth.js";
+import { purgeExpiredDemoUploads } from "./lib/purge.js";
 import { nextUtcMidnight } from "./lib/time.js";
 import { withTenant, type AppEnv } from "./middleware/tenant.js";
 import { adminRoute } from "./routes/admin.js";
 import { chatRoute } from "./routes/chat.js";
 import { demoRoute } from "./routes/demo.js";
 import { documentsRoute } from "./routes/documents.js";
+import { exportRoute } from "./routes/export.js";
 import { meRoute } from "./routes/me.js";
 import { settingsRoute } from "./routes/settings.js";
 import { uploadRoute } from "./routes/upload.js";
@@ -75,6 +77,7 @@ app.route("/api", uploadRoute);
 app.route("/api", chatRoute);
 app.route("/api", settingsRoute);
 app.route("/api", usageRoute);
+app.route("/api", exportRoute);
 app.route("/api", demoRoute);
 
 app.onError((error, c) => {
@@ -121,4 +124,32 @@ app.onError((error, c) => {
 
 app.notFound((c) => c.json({ error: "Not found.", code: "not_found" }, 404));
 
-export default app;
+/**
+ * Scheduled work.
+ *
+ * The demo accepts files from people with no account, so it deletes them a few
+ * hours later rather than keeping them. A cron trigger is what makes that
+ * happen without anything else running: no queue, no external scheduler, and
+ * nothing for an operator to remember. Outside demo mode the purge returns
+ * immediately, so a self-hosted deployment with the trigger configured pays
+ * one cheap query for it and nothing else.
+ */
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      purgeExpiredDemoUploads(env)
+        .then((result) => {
+          if (result.documents > 0) {
+            console.log(
+              `purged ${result.documents} demo documents and ${result.chunks} chunks` +
+                (result.more ? ", more remain for the next run" : ""),
+            );
+          }
+        })
+        .catch((error: unknown) => {
+          console.error("demo purge failed", error);
+        }),
+    );
+  },
+} satisfies ExportedHandler<Env>;

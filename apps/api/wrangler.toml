@@ -112,7 +112,18 @@ VECTOR_DIMENSIONS = "384"
 DEFAULT_TIER = "free"
 DEMO_TENANT_ID = "demo-curated"
 DEMO_VISITOR_CHATS_PER_DAY = "12"
-DEMO_VISITOR_UPLOADS_PER_DAY = "0"
+DEMO_VISITOR_UPLOADS_PER_DAY = "1"
 DEMO_GLOBAL_CHATS_PER_DAY = "110"
-DEMO_GLOBAL_UPLOADS_PER_DAY = "0"
-DEMO_UPLOADS_ENABLED = "false"
+DEMO_GLOBAL_UPLOADS_PER_DAY = "30"
+DEMO_UPLOADS_ENABLED = "true"
+# Two megabytes is a few pages, which is all it takes to watch the pipeline run.
+DEMO_MAX_UPLOAD_BYTES = "2097152"
+# Uploads are deleted after this long. Long enough to try the thing and export
+# it, short enough that Vectorize storage, which does not reset daily, stays
+# inside the free index.
+DEMO_RETENTION_HOURS = "3"
+
+# Runs the purge above. Hourly, at a minute nobody else picks, so a backlog
+# never builds up between runs.
+[env.demo.triggers]
+crons = ["17 * * * *"]

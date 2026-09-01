@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { ChatPane } from "@/components/ChatPane";
+import { DemoTryBar } from "@/components/DemoTryBar";
 import { DocumentPicker } from "@/components/DocumentPicker";
 import { DocumentReader } from "@/components/DocumentReader";
 import { GithubMark, Wordmark } from "@/components/Logo";
@@ -28,6 +29,11 @@ const SUGGESTIONS = [
  * No sign-in, one curated document already indexed, and a daily allowance that
  * keeps the deployment inside every free tier it depends on. A visitor who runs
  * out is told why and when it lifts, rather than meeting a broken page.
+ *
+ * A visitor may also add one small file of their own. The curated document
+ * shows the product works; only their own file shows it works on what they
+ * care about. Those uploads are deleted a few hours later, which is said before
+ * the upload rather than after, and they can export everything first.
  */
 export function Demo() {
   const workspace = useWorkspace();
@@ -102,6 +108,15 @@ export function Demo() {
       </header>
 
       {status && <QuotaBanner quota={status.quota} className="shrink-0" />}
+
+      {status && (
+        <DemoTryBar
+          status={status}
+          onUploaded={async () => {
+            await Promise.all([workspace.refreshDocuments(), refreshStatus()]);
+          }}
+        />
+      )}
 
       {workspace.documents.length > 1 && (
         <div className="shrink-0 border-b border-line bg-raised px-4 py-2 sm:hidden">

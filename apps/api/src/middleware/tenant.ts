@@ -79,6 +79,13 @@ export function demoLimits(env: Env) {
     globalChats: envInt(env.DEMO_GLOBAL_CHATS_PER_DAY, 120),
     globalUploads: envInt(env.DEMO_GLOBAL_UPLOADS_PER_DAY, 40),
     uploadsEnabled: envBool(env.DEMO_UPLOADS_ENABLED, false),
+    /**
+     * Deliberately far below the tier's 8 MB. A demo needs to show the pipeline
+     * working, which a few pages does, and every megabyte accepted from a
+     * stranger is storage the deployment pays for until the purge runs.
+     */
+    maxUploadBytes: envInt(env.DEMO_MAX_UPLOAD_BYTES, 2 * 1024 * 1024),
+    retentionHours: envInt(env.DEMO_RETENTION_HOURS, 3),
   };
 }
 

@@ -58,6 +58,10 @@ export interface Env {
   DEMO_GLOBAL_UPLOADS_PER_DAY?: string;
   DEMO_UPLOADS_ENABLED?: string;
   DEMO_COOKIE_SECRET?: string;
+  /** Largest file a demo visitor may upload. Smaller than the tier limit on purpose. */
+  DEMO_MAX_UPLOAD_BYTES?: string;
+  /** Hours a visitor's upload survives before the scheduled purge removes it. */
+  DEMO_RETENTION_HOURS?: string;
 }
 
 export interface Capabilities {
