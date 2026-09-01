@@ -27,6 +27,41 @@ than a guarantee.
 
 Daily allowances reset at midnight UTC.
 
+## The D1 change on 1 September 2026
+
+The D1 row limits above are not new. What is new is that Cloudflare now applies
+them. Before this date the figures were published but not enforced, so an
+account could sail past them and never notice. From 1 September 2026, crossing
+either one makes every D1 query fail until midnight UTC:
+
+> Your account has exceeded D1's free tier daily row read limit. Upgrade to a
+> paid plan or wait until tomorrow (midnight UTC) to continue.
+
+Stored data is unaffected, and the account is not billed. It simply stops until
+the reset. Cloudflare emails an alert when it happens.
+[The changelog entry](https://developers.cloudflare.com/changelog/product/d1/)
+and [the error list](https://developers.cloudflare.com/d1/observability/debug-d1/#error-list)
+are the sources.
+
+Two consequences run through this project.
+
+**The app measures its own row consumption.** D1 reports `rows_read` and
+`rows_written` in the metadata of every result, so the binding is wrapped to add
+them up and the usage screen shows the real figures rather than an estimate.
+Only ingestion and questions are metered: recording a cheap read would cost a
+row write to measure a handful of row reads, which spends more allowance than it
+accounts for. The figure shown is therefore a floor, and the interface says so.
+
+**Row reads decide which vector store is sensible.** Vectorize searches without
+touching D1. The D1 store searches by scanning, which reads one row per stored
+vector, so a full 4,000 vector scan buys 1,250 questions a day and nothing else.
+That is why Vectorize is the default for anything deployed and the D1 store is
+there for local development, where Cloudflare provides no Vectorize emulation.
+The settings screen names the live store and, when it is D1, the ceiling.
+
+When the limit is hit, the API answers `503` with the code `d1_daily_limit` and
+says when it resets, instead of a generic failure nobody can act on.
+
 ## What that means in practice
 
 ### Answers a day
@@ -76,10 +111,15 @@ that is 25 requests, each doing one embedding call and a handful of writes.
 Against 100,000 requests and 100,000 row writes a day, ingesting a few hundred
 pages a day is unremarkable.
 
-### The two limits that actually bite
+### The limits that actually bite
 
 **Processor time.** Ten milliseconds per request is the reason the browser does
 the reading. See [architecture.md](architecture.md).
+
+**D1 rows.** Enforced since 1 September 2026, as above. Reads are the half worth
+watching, because a scan reads rows it does not return. Cloudflare's own first
+recommendation is indexes, and every query this project runs on a hot path is
+served by one.
 
 **Bound parameters.** D1 rejects a query with more than 100 bound parameters. A
 multi-row insert binds one per column per row, so a batch of 24 passages across
@@ -90,14 +130,14 @@ time a column is added and only fails under a large batch.
 
 ## When you cross a line
 
-| Allowance              | What happens                                              |
-| ---------------------- | --------------------------------------------------------- |
-| Workers requests       | Requests are rejected until midnight UTC                  |
-| Workers processor time | That single request is terminated                         |
-| Workers AI neurons     | Model calls fail until midnight UTC, unless billing is on |
-| D1 daily rows          | Queries return errors until midnight UTC                  |
-| D1 storage             | Writes are refused; reads keep working                    |
-| Vectorize storage      | Upserts are refused                                       |
+| Allowance              | What happens                                                          |
+| ---------------------- | --------------------------------------------------------------------- |
+| Workers requests       | Requests are rejected until midnight UTC                              |
+| Workers processor time | That single request is terminated                                     |
+| Workers AI neurons     | Model calls fail until midnight UTC, unless billing is on             |
+| D1 daily rows          | Every query fails until midnight UTC. Enforced since 1 September 2026 |
+| D1 storage             | Writes are refused; reads keep working                                |
+| Vectorize storage      | Upserts are refused                                                   |
 
 None of these bill you by surprise. The free plan stops rather than charging.
 
@@ -108,6 +148,8 @@ None of these bill you by surprise. The free plan stops rather than charging.
   likely to run out first.
 - Lower the retrieved passage count in settings. Six is the default; four
   cuts the prompt by a third.
+- Use Vectorize rather than the D1 vector store for anything with traffic. It
+  removes the largest single source of row reads.
 - Watch the usage screen for the first week. Real volume is usually nothing like
   the estimate.
 

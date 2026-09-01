@@ -104,12 +104,24 @@ the namespace and a `tenant_id` metadata value, and every read sets both the
 namespace and a `tenant_id` filter. Either alone would isolate tenants. Both
 are used so a mistake in one still leaves the other enforcing it.
 
-**D1** is used when no Vectorize binding is configured. Vectors are stored as
-Float32 blobs and searched by scanning. A scan of 4,000 vectors at 384
+**D1** is used when no Vectorize binding is configured, which in practice means
+local development: Cloudflare provides
+[no local simulation for Vectorize](https://developers.cloudflare.com/workers/local-development/),
+so without this the project could not run without an account. Vectors are stored
+as Float32 blobs and searched by scanning. A scan of 4,000 vectors at 384
 dimensions is about 1.5 million multiply-adds, which measures in single digit
 milliseconds, so the scan stops at 4,000 to stay inside the processor budget.
-This is what makes the project runnable with no Cloudflare account at all, and
-it is a reasonable production choice for a small corpus.
+
+Processor time is no longer what caps it, though. A scan reads one D1 row per
+stored vector, and since 1 September 2026 Cloudflare enforces a daily allowance
+of 5,000,000 rows read. A full scan therefore buys 1,250 questions a day before
+every query in the account starts failing, and that is before counting the rest
+of the request. Vectorize reads no D1 rows to search at all.
+
+So: Vectorize for anything deployed, D1 for local development and for a corpus
+small enough that the scan stays short. The settings screen names the live store
+and, when it is D1, works out the ceiling. Both deployment environments in
+`wrangler.toml` set `VECTOR_BACKEND = "vectorize"`.
 
 ### Dimensions
 
@@ -186,6 +198,13 @@ accounting and the interface all exercise the same code paths as a real
 deployment. It proves nothing about answer quality, and it says so in the
 interface, which reports the answer as coming from the offline provider rather
 than crediting a model that never ran.
+
+For real models with still no account anywhere, point `OLLAMA_BASE_URL` at a
+local Ollama server and pick the local models in settings. That gives genuine
+embeddings and genuine prose while everything else stays local. Choosing a local
+provider outranks `OFFLINE_AI`, and the usage report asks the same question the
+dispatcher asks, so the model named under an answer is always the one that
+produced it. See [local-models.md](local-models.md).
 
 The deployment script refuses to publish with `OFFLINE_AI` set.
 
