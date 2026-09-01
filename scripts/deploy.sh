@@ -197,6 +197,24 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Object storage
+#
+# Optional. Naming a bucket is what turns it on, so a deployment that does not
+# want R2 pays nothing and needs no extra token permission.
+# ---------------------------------------------------------------------------
+if [ -n "${R2_BUCKET_NAME:-}" ]; then
+  step "Object storage"
+  if [ "$DRY_RUN" = true ]; then
+    skip "would create the R2 bucket $R2_BUCKET_NAME if missing"
+  elif $WRANGLER r2 bucket info "$R2_BUCKET_NAME" >/dev/null 2>&1; then
+    skip "$R2_BUCKET_NAME already exists"
+  else
+    run $WRANGLER r2 bucket create "$R2_BUCKET_NAME"
+    ok "created $R2_BUCKET_NAME"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Worker configuration
 # ---------------------------------------------------------------------------
 step "Worker configuration"
@@ -228,6 +246,12 @@ WEB_ORIGIN="${WEB_ORIGIN:-https://${PAGES_PROJECT}.pages.dev}"
   echo 'binding = "VECTORIZE"'
   echo "index_name = \"$VECTORIZE_INDEX_NAME\""
   echo
+  if [ -n "${R2_BUCKET_NAME:-}" ]; then
+    echo "[[r2_buckets]]"
+    echo 'binding = "BUCKET"'
+    echo "bucket_name = \"$R2_BUCKET_NAME\""
+    echo
+  fi
   echo "[vars]"
   echo "APP_MODE = \"$([ "$PROFILE" = demo ] && echo demo || echo self-host)\""
   echo "APP_VERSION = \"$(node -p "require('$ROOT/package.json').version")\""

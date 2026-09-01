@@ -64,6 +64,19 @@ migrations_dir = "drizzle"
 binding = "VECTORIZE"
 index_name = "rag-index"
 
+# Optional object storage. scripts/deploy.sh adds this block for you when
+# R2_BUCKET_NAME is set in your env file. Uncomment it only if you deploy by
+# hand, and create the bucket first with:
+#
+#   npx wrangler r2 bucket create rag-originals
+#
+# It holds the original of a scanned document sent to LlamaParse so a failed
+# parse can be retried without a re-upload. Nothing else reads it.
+#
+# [[env.production.r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "rag-originals"
+
 [env.production.observability]
 enabled = true
 

@@ -21,15 +21,18 @@ npm install
 Cloudflare dashboard, **My Profile**, **API Tokens**, **Create Token**, then
 **Create Custom Token**. Give it these permissions on your account:
 
-| Permission         | Level |
-| ------------------ | ----- |
-| Workers Scripts    | Edit  |
-| Workers KV Storage | Edit  |
-| D1                 | Edit  |
-| Vectorize          | Edit  |
-| Workers AI         | Edit  |
-| Cloudflare Pages   | Edit  |
-| Account Settings   | Read  |
+| Permission         | Level | Why                                          |
+| ------------------ | ----- | -------------------------------------------- |
+| Workers Scripts    | Edit  | Deploy the Worker and set its secrets        |
+| D1                 | Edit  | Create the database, apply migrations        |
+| Vectorize          | Edit  | Create the index and its metadata index      |
+| Workers AI         | Edit  | The model binding the Worker runs on         |
+| Cloudflare Pages   | Edit  | Deploy the interface                         |
+| Account Settings   | Read  | Confirm the token works before anything else |
+| Workers R2 Storage | Edit  | Only if you set `R2_BUCKET_NAME`             |
+
+Leave out R2 unless you want it. Nothing else needs it, and the deploy script
+skips object storage entirely when `R2_BUCKET_NAME` is blank.
 
 Copy the token when it is shown. It is not shown again.
 
