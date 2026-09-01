@@ -20,14 +20,16 @@
     "format:write": "prettier --write .",
     "test": "npm run build:shared && npm run test --workspaces --if-present",
     "build": "npm run build:shared && npm run build --workspace apps/web",
-    "dev:api": "npm run dev --workspace apps/api",
-    "dev:web": "npm run dev --workspace apps/web",
-    "dev": "concurrently -n api,web -c blue,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run build:shared && npm run dev --workspace apps/api",
+    "dev:web": "npm run build:shared && npm run dev --workspace apps/web",
+    "dev": "npm run build:shared && concurrently -n api,web -c blue,magenta \"npm:dev:api:only\" \"npm:dev:web:only\"",
     "db:generate": "npm run db:generate --workspace apps/api",
     "db:migrate:local": "npm run db:migrate:local --workspace apps/api",
     "verify": "npm run typecheck && npm run lint && npm run format && npm run test",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
-    "build:shared": "npm run build --workspace packages/shared"
+    "build:shared": "npm run build --workspace packages/shared",
+    "dev:api:only": "npm run dev --workspace apps/api",
+    "dev:web:only": "npm run dev --workspace apps/web"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
