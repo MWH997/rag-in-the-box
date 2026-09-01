@@ -161,6 +161,31 @@ chatRoute.post("/chat", async (c) => {
       }
 
       const usage = result.usage();
+
+      // A model can finish successfully and say nothing. The reasoning models
+      // do it when their thinking uses the whole output budget: tokens are
+      // spent, the request succeeds, and the reader gets an empty bubble with
+      // no idea why. Say so instead, and name the cause, because the fix is to
+      // pick a different model or raise the answer length.
+      if (answer.trim().length === 0) {
+        await send({
+          type: "error",
+          code: "empty_answer",
+          message:
+            "The model finished without writing an answer. This usually means it spent its whole answer budget reasoning. Raise the answer length in settings, or choose a model that replies directly.",
+        });
+        await refundQuota(db, quotaChecks).catch(() => undefined);
+        await send({
+          type: "done",
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          model: settings.chatModel,
+          retrievalMs,
+          totalMs: Date.now() - startedAt,
+        });
+        return;
+      }
+
       // Report what actually answered, asking the same question the dispatcher
       // asked, so the two cannot credit different models for one answer.
       const offline = servedOffline(c.env, settings.chatProvider);

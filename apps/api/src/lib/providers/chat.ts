@@ -87,6 +87,34 @@ async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator<string
   }
 }
 
+/**
+ * A streamed chunk from Workers AI, in either shape the platform uses.
+ *
+ * The original models answer with a bare `response` string. The OpenAI models
+ * hosted there, gpt-oss among them, answer in the OpenAI chat completion shape
+ * instead, and additionally stream `reasoning_content`, which is the model
+ * thinking out loud before it commits to an answer.
+ */
+interface WorkersAiChunk {
+  response?: string;
+  choices?: { delta?: { content?: string; reasoning_content?: string } }[];
+  usage?: { completion_tokens?: number };
+}
+
+/**
+ * The answer text in a chunk, whichever shape it arrived in.
+ *
+ * `reasoning_content` is deliberately ignored. It is the model's working, it is
+ * often longer than the answer, and it frequently talks about the prompt rather
+ * than to the reader. Streaming it would put chain of thought where an answer
+ * should be, and the citation matcher would then hunt for passages inside it.
+ */
+function answerTextIn(chunk: WorkersAiChunk): string {
+  if (typeof chunk.response === "string") return chunk.response;
+  const content = chunk.choices?.[0]?.delta?.content;
+  return typeof content === "string" ? content : "";
+}
+
 function streamWorkersAi(env: Env, options: ChatStreamOptions): ChatStreamResult {
   let completionTokens = 0;
   const promptTokens = promptTokensFor(options.messages);
@@ -112,8 +140,8 @@ function streamWorkersAi(env: Env, options: ChatStreamOptions): ChatStreamResult
 
     if (!(raw instanceof ReadableStream)) {
       // Some models ignore `stream` and answer in one piece. Handle both.
-      const single = raw as { response?: string; usage?: { completion_tokens?: number } };
-      const text = single.response ?? "";
+      const single = raw as WorkersAiChunk;
+      const text = answerTextIn(single);
       completionTokens = single.usage?.completion_tokens ?? estimateTokens(text);
       if (text) yield { text };
       return;
@@ -121,15 +149,17 @@ function streamWorkersAi(env: Env, options: ChatStreamOptions): ChatStreamResult
 
     for await (const payload of readSse(raw as ReadableStream<Uint8Array>)) {
       if (payload === "[DONE]") break;
-      let parsed: { response?: string; usage?: { completion_tokens?: number } };
+      let parsed: WorkersAiChunk;
       try {
-        parsed = JSON.parse(payload) as typeof parsed;
+        parsed = JSON.parse(payload) as WorkersAiChunk;
       } catch {
         continue;
       }
-      if (parsed.usage?.completion_tokens) completionTokens = parsed.usage.completion_tokens;
-      const text = parsed.response;
-      if (typeof text === "string" && text.length > 0) {
+      if (parsed.usage?.completion_tokens) {
+        completionTokens += parsed.usage.completion_tokens;
+      }
+      const text = answerTextIn(parsed);
+      if (text.length > 0) {
         if (!parsed.usage?.completion_tokens) completionTokens += estimateTokens(text);
         yield { text };
       }

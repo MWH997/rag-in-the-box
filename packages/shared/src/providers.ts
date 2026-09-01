@@ -133,7 +133,7 @@ export const CHAT_MODELS: Record<ChatProvider, ChatModel[]> = {
     {
       id: "@cf/openai/gpt-oss-20b",
       label: "GPT-OSS 20B",
-      note: "Default. Cheapest per answer, so it stretches the free allowance furthest.",
+      note: "Cheapest per token, but it reasons before answering and that thinking is billed as output. On a long document question it can spend the whole budget thinking and return nothing.",
       neuronsPerMillionInput: 18_182,
       neuronsPerMillionOutput: 27_273,
       usdPerMillionInput: 0.2,
@@ -143,7 +143,7 @@ export const CHAT_MODELS: Record<ChatProvider, ChatModel[]> = {
     {
       id: "@cf/openai/gpt-oss-120b",
       label: "GPT-OSS 120B",
-      note: "Stronger reasoning, roughly twice the cost per answer.",
+      note: "Stronger reasoning, roughly twice the cost, and the same caveat about thinking eating the answer budget.",
       neuronsPerMillionInput: 31_818,
       neuronsPerMillionOutput: 68_182,
       usdPerMillionInput: 0.35,
@@ -153,7 +153,7 @@ export const CHAT_MODELS: Record<ChatProvider, ChatModel[]> = {
     {
       id: "@cf/meta/llama-4-scout-17b-16e-instruct",
       label: "Llama 4 Scout 17B",
-      note: "Good long-context behaviour on document questions.",
+      note: "Default. Answers directly rather than reasoning first, which suits a question that has to be grounded in quoted passages.",
       neuronsPerMillionInput: 24_545,
       neuronsPerMillionOutput: 77_273,
       usdPerMillionInput: 0.27,
@@ -252,7 +252,17 @@ export const CHAT_MODELS: Record<ChatProvider, ChatModel[]> = {
 export const DEFAULT_EMBEDDING_PROVIDER: EmbeddingProvider = "workers-ai";
 export const DEFAULT_EMBEDDING_MODEL = "@cf/baai/bge-small-en-v1.5";
 export const DEFAULT_CHAT_PROVIDER: ChatProvider = "workers-ai";
-export const DEFAULT_CHAT_MODEL = "@cf/openai/gpt-oss-20b";
+/**
+ * The default answers rather than reasons.
+ *
+ * gpt-oss is cheaper per token and was the default until it was watched in
+ * production. It thinks before answering, that thinking is billed as output,
+ * and on a question against a long document it repeatedly spent the entire
+ * budget thinking and returned an empty answer with a healthy token count.
+ * Scout costs about the same per answer once the wasted reasoning is counted,
+ * and it replies.
+ */
+export const DEFAULT_CHAT_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 
 /** Cloudflare grants this many Workers AI neurons a day on every plan. */
 export const FREE_NEURONS_PER_DAY = 10_000;

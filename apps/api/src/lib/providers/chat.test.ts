@@ -66,3 +66,77 @@ describe("answer tuning", () => {
     expect(received.length).toBe(before + 1);
   });
 });
+
+/**
+ * Workers AI answers in two different shapes and the parser must read both.
+ *
+ * The original models send a bare `response` string. The OpenAI models hosted
+ * on the platform, which includes the default chat model, send the OpenAI chat
+ * completion shape instead and also stream `reasoning_content`. Reading only
+ * the first shape produced a perfectly successful request that returned an
+ * empty answer, with the token count climbing the whole time, and it reached
+ * production before anyone noticed.
+ */
+describe("the workers ai stream shapes", () => {
+  function bindingReturning(frames: string[]): Env {
+    const body = frames.map((f) => `data: ${f}\n\n`).join("") + "data: [DONE]\n\n";
+    return {
+      AI: {
+        run: async () =>
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(body));
+              controller.close();
+            },
+          }),
+      },
+    } as unknown as Env;
+  }
+
+  async function collect(env: Env) {
+    const result = streamChat(env, "workers-ai", {
+      model: "@cf/openai/gpt-oss-20b",
+      messages: [{ role: "user", content: "hi" }],
+      maxTokens: 100,
+      temperature: 0.1,
+    });
+    let text = "";
+    for await (const chunk of result.stream) text += chunk.text;
+    return { text, usage: result.usage() };
+  }
+
+  it("reads the bare response shape", async () => {
+    const env = bindingReturning([
+      JSON.stringify({ response: "Hello" }),
+      JSON.stringify({ response: " world" }),
+    ]);
+    expect((await collect(env)).text).toBe("Hello world");
+  });
+
+  it("reads the openai chat completion shape", async () => {
+    const env = bindingReturning([
+      JSON.stringify({ choices: [{ delta: { content: "Hello" } }] }),
+      JSON.stringify({ choices: [{ delta: { content: " world" } }] }),
+    ]);
+    expect((await collect(env)).text).toBe("Hello world");
+  });
+
+  it("leaves the model's reasoning out of the answer", async () => {
+    const env = bindingReturning([
+      JSON.stringify({ choices: [{ delta: { reasoning_content: "User asks about" } }] }),
+      JSON.stringify({ choices: [{ delta: { reasoning_content: " the framework. I should" } }] }),
+      JSON.stringify({ choices: [{ delta: { content: "The answer." } }] }),
+    ]);
+    const { text } = await collect(env);
+    expect(text).toBe("The answer.");
+    expect(text).not.toContain("I should");
+  });
+
+  it("counts the tokens the platform reports", async () => {
+    const env = bindingReturning([
+      JSON.stringify({ choices: [{ delta: { content: "a" } }], usage: { completion_tokens: 3 } }),
+      JSON.stringify({ choices: [{ delta: { content: "b" } }], usage: { completion_tokens: 4 } }),
+    ]);
+    expect((await collect(env)).usage.completionTokens).toBe(7);
+  });
+});
