@@ -1,4 +1,5 @@
 import {
+  CHAT_MODELS,
   findChatModel,
   neuronsForChat,
   type Citation,
@@ -155,10 +156,16 @@ export function useWorkspace() {
                 update({ content: answer });
                 break;
               case "done": {
-                // Neuron cost is only meaningful for a Workers AI model. Other
-                // providers bill in their own currency, and the offline
-                // development provider bills nothing at all.
-                const model = findChatModel("workers-ai", event.model);
+                // Neurons are Cloudflare's unit, so they only mean anything for
+                // a Workers AI model. OpenAI and DeepSeek bill in their own
+                // currency and the offline development provider bills nothing,
+                // so both report zero rather than a number that looks like a
+                // Cloudflare cost.
+                const model = CHAT_MODELS["workers-ai"].some(
+                  (candidate) => candidate.id === event.model,
+                )
+                  ? findChatModel("workers-ai", event.model)
+                  : undefined;
                 update({
                   stats: {
                     retrievalMs: event.retrievalMs,
