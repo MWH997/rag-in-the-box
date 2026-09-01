@@ -125,7 +125,7 @@ if [ "${OFFLINE_AI:-}" = "true" ]; then
   die "OFFLINE_AI is set. That switch replaces the models with local stand-ins and must never be deployed."
 fi
 if [ "${VECTOR_BACKEND:-}" = "d1" ]; then
-  warn "VECTOR_BACKEND is d1. That is fine for a small corpus but slower than Vectorize past a few thousand passages."
+  warn "VECTOR_BACKEND is d1. Searching by scan reads one D1 row per stored vector, and Cloudflare has enforced 5,000,000 row reads a day since 1 September 2026, so a full scan buys about 1,250 questions a day. Vectorize reads no rows to search."
 fi
 
 WRANGLER="npx --no-install wrangler"
@@ -241,9 +241,16 @@ WEB_ORIGIN="${WEB_ORIGIN:-https://${PAGES_PROJECT}.pages.dev}"
     echo "DEMO_TENANT_ID = \"${DEMO_TENANT_ID:-demo-curated}\""
     echo "DEMO_VISITOR_CHATS_PER_DAY = \"${DEMO_VISITOR_CHATS_PER_DAY:-12}\""
     echo "DEMO_GLOBAL_CHATS_PER_DAY = \"${DEMO_GLOBAL_CHATS_PER_DAY:-110}\""
-    echo "DEMO_VISITOR_UPLOADS_PER_DAY = \"${DEMO_VISITOR_UPLOADS_PER_DAY:-0}\""
-    echo "DEMO_GLOBAL_UPLOADS_PER_DAY = \"${DEMO_GLOBAL_UPLOADS_PER_DAY:-0}\""
-    echo "DEMO_UPLOADS_ENABLED = \"${DEMO_UPLOADS_ENABLED:-false}\""
+    echo "DEMO_VISITOR_UPLOADS_PER_DAY = \"${DEMO_VISITOR_UPLOADS_PER_DAY:-1}\""
+    echo "DEMO_GLOBAL_UPLOADS_PER_DAY = \"${DEMO_GLOBAL_UPLOADS_PER_DAY:-30}\""
+    echo "DEMO_UPLOADS_ENABLED = \"${DEMO_UPLOADS_ENABLED:-true}\""
+    echo "DEMO_MAX_UPLOAD_BYTES = \"${DEMO_MAX_UPLOAD_BYTES:-2097152}\""
+    echo "DEMO_RETENTION_HOURS = \"${DEMO_RETENTION_HOURS:-3}\""
+    echo
+    # Without this the purge never runs and visitor uploads accumulate until
+    # Vectorize storage, which does not reset daily, is permanently full.
+    echo "[triggers]"
+    echo 'crons = ["17 * * * *"]'
   fi
 } > "$GENERATED"
 ok "wrote apps/api/$GENERATED"
