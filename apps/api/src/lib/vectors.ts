@@ -189,7 +189,14 @@ export async function queryChunks(
     namespace,
     filter: { tenant_id: tenantId } as VectorizeVectorMetadataFilter,
     returnValues: false,
-    returnMetadata: "indexed",
+    // "all" rather than "indexed". Indexed returns only the fields that have a
+    // metadata index, and only tenant_id has one, so document_id came back
+    // undefined and every match claimed to belong to no document. Retrieval
+    // still worked, because the chunk rows carry the real document id, but
+    // asking about one particular document filtered every match away and the
+    // answer became "the documents do not cover this". The D1 backend reads the
+    // id from a column, so this only ever failed in a deployment.
+    returnMetadata: "all",
   });
 
   return (result.matches ?? [])
