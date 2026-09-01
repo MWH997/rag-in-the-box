@@ -1,0 +1,4 @@
+#!/bin/sh
+# Validates the commit message against Conventional Commits.
+# Enable once per clone:  git config core.hooksPath .githooks
+npx --no-install commitlint --edit "$1"

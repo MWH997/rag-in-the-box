@@ -2,6 +2,7 @@ node_modules
 dist
 build
 .wrangler
-drizzle
 package-lock.json
-product.md
+apps/api/drizzle/meta
+apps/api/fixtures
+qa/screenshots

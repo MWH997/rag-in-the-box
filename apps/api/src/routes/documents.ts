@@ -1,119 +1,325 @@
-import { Hono } from "hono";
-import { z } from "zod";
-import { eq } from "drizzle-orm";
-import type { Env } from "../env.js";
-import { requireAuth, type AuthVariables } from "../middleware/require-auth.js";
-import { createDb } from "../db/index.js";
-import { documents } from "../db/schema.js";
-import { routeDocument, TRIAGE } from "../lib/router.js";
+import {
+  CreateDocumentRequest,
+  DocumentListResponse,
+  IngestRequest,
+  TIER_LIMITS,
+  findEmbeddingModel,
+  neuronsForEmbedding,
+  type DocumentSummary,
+} from "@rag/shared";
+import { Hono, type Context } from "hono";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
-export const documentsRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
+import type { AppEnv } from "../middleware/tenant.js";
+import { quotaChecksFor } from "../middleware/tenant.js";
+import { chunks, documentSegments, documents } from "../db/schema.js";
+import { HttpError } from "../lib/errors.js";
+import { embed } from "../lib/providers/index.js";
+import { consumeQuota } from "../lib/quota.js";
+import { loadSettings } from "../lib/settings.js";
+import { METRICS, recordUsage } from "../lib/usage.js";
+import { deleteChunks, upsertChunks } from "../lib/vectors.js";
 
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+export const documentsRoute = new Hono<AppEnv>();
 
-const EXTENSION_MIME_MAP = {
-  pdf: "application/pdf",
-  csv: "text/csv",
-  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  txt: "text/plain",
-  md: "text/markdown",
-} as const;
-
-// .txt/.csv/.md are never routed to LlamaParse (TICKET-32 rule 2), and local
-// parsing needs the whole file in memory, so anything over the router's own
-// local-size ceiling has nowhere safe to go and is rejected outright here
-// rather than accepted and failing later.
-const NEVER_LLAMAPARSE_EXTENSIONS = new Set(["txt", "csv", "md"]);
-
-const UploadMeta = z
-  .object({
-    filename: z.string().min(1).max(255),
-    extension: z.enum(["pdf", "csv", "docx", "txt", "md"]),
-    sizeBytes: z
-      .number()
-      .int()
-      .positive()
-      .max(MAX_UPLOAD_BYTES, `File exceeds the ${MAX_UPLOAD_BYTES} byte limit`),
-  })
-  .refine(
-    (value) =>
-      !NEVER_LLAMAPARSE_EXTENSIONS.has(value.extension) || value.sizeBytes <= TRIAGE.MAX_LOCAL_BYTES,
-    {
-      message: `.txt/.csv/.md files must be at most ${TRIAGE.MAX_LOCAL_BYTES} bytes — they are always parsed locally and cannot fall back to LlamaParse`,
-      path: ["sizeBytes"],
-    },
-  );
-
-function sanitizeFilename(filename: string): string {
-  return filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+/** Vector ids are derived, never random, so a chunk maps to its document. */
+function chunkId(documentId: string, seq: number): string {
+  return `${documentId}:${seq}`;
 }
 
-documentsRoute.post("/documents", requireAuth, async (c) => {
-  const formData = await c.req.formData();
-  const file = formData.get("file");
+export function documentIdOfChunk(id: string): string {
+  const cut = id.lastIndexOf(":");
+  return cut === -1 ? id : id.slice(0, cut);
+}
 
-  if (!(file instanceof File)) {
-    return c.json(
-      { error: { code: "invalid_upload", message: "Missing 'file' field in form data" } },
-      422,
+async function loadOwnedDocument(
+  c: Context<AppEnv>,
+  documentId: string,
+  writable: boolean,
+) {
+  const db = c.get("db");
+  const tenant = c.get("tenant");
+  const scope = writable ? [tenant.tenantId] : tenant.readTenantIds;
+
+  const [row] = await db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.id, documentId), inArray(documents.tenantId, scope)))
+    .limit(1);
+
+  if (!row) throw new HttpError(404, "document_not_found", "Document not found.");
+  return row;
+}
+
+documentsRoute.get("/documents", async (c) => {
+  const db = c.get("db");
+  const tenant = c.get("tenant");
+  const settings = await loadSettings(db, c.env, tenant.tenantId);
+  const limits = TIER_LIMITS[settings.tier];
+
+  const rows = await db
+    .select()
+    .from(documents)
+    .where(inArray(documents.tenantId, tenant.readTenantIds))
+    .orderBy(asc(documents.createdAt));
+
+  const owned = rows.filter((row) => row.tenantId === tenant.tenantId);
+  const chunkTotal = owned.reduce((sum, row) => sum + row.embeddedCount, 0);
+
+  const summaries: DocumentSummary[] = rows.map((row) => ({
+    id: row.id,
+    filename: row.filename,
+    kind: row.kind,
+    sizeBytes: row.sizeBytes,
+    status: row.status,
+    extractor: row.extractor,
+    chunkCount: row.chunkCount,
+    embeddedCount: row.embeddedCount,
+    pageCount: row.pageCount,
+    error: row.error,
+    embeddingModel: row.embeddingModel,
+    stale: Boolean(row.embeddingModel) && row.embeddingModel !== settings.embeddingModel,
+    shared: row.tenantId !== tenant.tenantId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }));
+
+  return c.json(
+    DocumentListResponse.parse({
+      documents: summaries,
+      usage: {
+        documents: owned.length,
+        maxDocuments: limits.maxDocuments,
+        chunks: chunkTotal,
+        maxChunks: limits.maxChunksPerTenant,
+      },
+    }),
+  );
+});
+
+documentsRoute.post("/documents", async (c) => {
+  const db = c.get("db");
+  const tenant = c.get("tenant");
+  const body = CreateDocumentRequest.parse(await c.req.json());
+
+  const settings = await loadSettings(db, c.env, tenant.tenantId);
+  const limits = TIER_LIMITS[settings.tier];
+
+  if (body.sizeBytes > limits.maxUploadBytes) {
+    throw new HttpError(
+      413,
+      "upload_too_large",
+      `This file is larger than the ${Math.round(limits.maxUploadBytes / 1024 / 1024)} MB limit for the ${settings.tier} tier.`,
+    );
+  }
+  if (body.extractor !== "browser" && !limits.serverSideParsing) {
+    throw new HttpError(
+      400,
+      "server_parsing_disabled",
+      "Server-side parsing needs the paid tier. Extract the text in the browser instead.",
     );
   }
 
-  const extension = file.name.split(".").pop()?.toLowerCase();
-  const parsed = UploadMeta.safeParse({
-    filename: file.name,
-    extension,
-    sizeBytes: file.size,
-  });
+  const [counts] = await db
+    .select({
+      documents: sql<number>`count(*)`,
+      chunkTotal: sql<number>`coalesce(sum(${documents.embeddedCount}), 0)`,
+    })
+    .from(documents)
+    .where(eq(documents.tenantId, tenant.tenantId));
 
-  if (!parsed.success) {
-    return c.json(
-      { error: { code: "invalid_upload", message: "Invalid file", issues: parsed.error.issues } },
-      422,
+  if ((counts?.documents ?? 0) >= limits.maxDocuments) {
+    throw new HttpError(
+      409,
+      "document_limit_reached",
+      `This workspace already holds ${limits.maxDocuments} documents. Delete one to add another.`,
+    );
+  }
+  if ((counts?.chunkTotal ?? 0) + body.totalChunks > limits.maxChunksPerTenant) {
+    throw new HttpError(
+      409,
+      "chunk_limit_reached",
+      "This document would take the workspace past its chunk allowance for this tier.",
     );
   }
 
-  const tenantId = c.get("tenantId");
-  const sanitizedFilename = sanitizeFilename(parsed.data.filename);
-  const mimeType = EXTENSION_MIME_MAP[parsed.data.extension];
-  const db = createDb(c.env.DB);
+  await consumeQuota(db, quotaChecksFor(c.env, tenant, "upload", limits.documentsPerDay));
 
-  const [inserted] = await db
+  const [row] = await db
     .insert(documents)
     .values({
-      tenantId,
-      filename: sanitizedFilename,
-      mimeType,
-      sizeBytes: parsed.data.sizeBytes,
-      status: "uploading",
+      tenantId: tenant.tenantId,
+      filename: body.filename,
+      kind: body.kind,
+      sizeBytes: body.sizeBytes,
+      status: "embedding",
+      extractor: body.extractor,
+      pageCount: body.pageCount,
+      chunkCount: body.totalChunks,
+      embeddedCount: 0,
     })
-    .returning();
+    .returning({ id: documents.id });
 
-  if (!inserted) {
-    return c.json({ error: { code: "insert_failed", message: "Could not create document" } }, 500);
+  if (!row) throw new HttpError(500, "document_insert_failed", "Could not create the document.");
+
+  return c.json({ documentId: row.id, batchSize: limits.ingestBatchSize }, 201);
+});
+
+/**
+ * Accepts one batch of display segments and retrieval chunks.
+ *
+ * The whole batch costs a bounded amount of work: at most two D1 writes, one
+ * embedding call and one Vectorize upsert, no matter how large the document is.
+ * The client keeps calling until it has nothing left to send, then sets `done`.
+ */
+documentsRoute.post("/documents/:id/ingest", async (c) => {
+  const started = Date.now();
+  const db = c.get("db");
+  const tenant = c.get("tenant");
+  const document = await loadOwnedDocument(c, c.req.param("id"), true);
+  const body = IngestRequest.parse(await c.req.json());
+
+  const settings = await loadSettings(db, c.env, tenant.tenantId);
+  const limits = TIER_LIMITS[settings.tier];
+
+  if (body.chunks.length > limits.ingestBatchSize) {
+    throw new HttpError(
+      400,
+      "batch_too_large",
+      `Send at most ${limits.ingestBatchSize} chunks per call on the ${settings.tier} tier.`,
+    );
   }
 
-  const r2Key = `${tenantId}/${inserted.id}/${sanitizedFilename}`;
+  if (body.segments.length > 0) {
+    await db.insert(documentSegments).values(
+      body.segments.map((segment) => ({
+        documentId: document.id,
+        tenantId: tenant.tenantId,
+        seq: segment.seq,
+        page: segment.page,
+        charStart: segment.charStart,
+        markdown: segment.markdown,
+      })),
+    );
+  }
 
-  // Stream directly to R2 — never buffer the whole file into an ArrayBuffer.
-  await c.env.BUCKET.put(r2Key, file.stream());
+  let embeddedNow = 0;
+  let embeddingTokens = 0;
 
-  await db
+  if (body.chunks.length > 0) {
+    const result = await embed(
+      c.env,
+      settings.embeddingProvider,
+      settings.embeddingModel,
+      body.chunks.map((chunk) => chunk.text),
+    );
+    embeddingTokens = result.tokens;
+
+    await db.insert(chunks).values(
+      body.chunks.map((chunk) => ({
+        id: chunkId(document.id, chunk.seq),
+        documentId: document.id,
+        tenantId: tenant.tenantId,
+        seq: chunk.seq,
+        heading: chunk.heading,
+        page: chunk.page,
+        charStart: chunk.charStart,
+        charEnd: chunk.charEnd,
+        text: chunk.text,
+        tokenEstimate: chunk.tokenEstimate,
+        embedded: 1,
+      })),
+    );
+
+    await upsertChunks(
+      c.env,
+      tenant.tenantId,
+      body.chunks.map((chunk, index) => ({
+        id: chunkId(document.id, chunk.seq),
+        documentId: document.id,
+        vector: result.vectors[index] ?? [],
+      })),
+      db,
+    );
+
+    embeddedNow = body.chunks.length;
+  }
+
+  const [updated] = await db
     .update(documents)
-    .set({ r2Key, updatedAt: Date.now() })
-    .where(eq(documents.id, inserted.id));
+    .set({
+      embeddedCount: sql`${documents.embeddedCount} + ${embeddedNow}`,
+      status: body.done ? "active" : "embedding",
+      embeddingModel: settings.embeddingModel,
+      updatedAt: Date.now(),
+    })
+    .where(eq(documents.id, document.id))
+    .returning({ embeddedCount: documents.embeddedCount, status: documents.status });
 
-  // Materializing the whole file here (via file.arrayBuffer()) is expected
-  // for local parsing — unlike the R2 upload above, the parsers in TICKET-31
-  // inherently need the full buffer resident, which is exactly why the
-  // 20 MB router size guard exists in the first place. Blobs/Files are
-  // re-readable, so this is independent of the .stream() already consumed
-  // by BUCKET.put() above.
-  await routeDocument(
+  const embeddingModel = findEmbeddingModel(settings.embeddingProvider, settings.embeddingModel);
+  await recordUsage(db, tenant.tenantId, [
+    { metric: METRICS.embeddingTokens, value: embeddingTokens },
+    {
+      metric: METRICS.neurons,
+      value: embeddingModel ? neuronsForEmbedding(embeddingModel, embeddingTokens) : 0,
+    },
+    { metric: METRICS.documentsIngested, value: body.done ? 1 : 0 },
+  ]);
+
+  return c.json({
+    documentId: document.id,
+    status: updated?.status ?? "embedding",
+    embedded: updated?.embeddedCount ?? 0,
+    total: document.chunkCount,
+    elapsedMs: Date.now() - started,
+  });
+});
+
+documentsRoute.get("/documents/:id/content", async (c) => {
+  const db = c.get("db");
+  const document = await loadOwnedDocument(c, c.req.param("id"), false);
+
+  const rows = await db
+    .select({
+      seq: documentSegments.seq,
+      charStart: documentSegments.charStart,
+      page: documentSegments.page,
+      markdown: documentSegments.markdown,
+    })
+    .from(documentSegments)
+    .where(eq(documentSegments.documentId, document.id))
+    .orderBy(asc(documentSegments.seq));
+
+  return c.json({
+    id: document.id,
+    filename: document.filename,
+    pageCount: document.pageCount,
+    segments: rows,
+  });
+});
+
+documentsRoute.delete("/documents/:id", async (c) => {
+  const db = c.get("db");
+  const document = await loadOwnedDocument(c, c.req.param("id"), true);
+
+  const ids = await db
+    .select({ id: chunks.id })
+    .from(chunks)
+    .where(eq(chunks.documentId, document.id));
+
+  await deleteChunks(
     c.env,
-    { id: inserted.id, tenantId, filename: sanitizedFilename, sizeBytes: parsed.data.sizeBytes },
-    () => file.arrayBuffer(),
+    ids.map((row) => row.id),
+    document.tenantId,
+    db,
   );
+  await db.delete(chunks).where(eq(chunks.documentId, document.id));
+  await db.delete(documentSegments).where(eq(documentSegments.documentId, document.id));
+  await db.delete(documents).where(eq(documents.id, document.id));
 
-  return c.json({ documentId: inserted.id });
+  if (document.originalKey && c.env.BUCKET) {
+    await c.env.BUCKET.delete(document.originalKey);
+  }
+
+  return c.json({ deleted: document.id });
 });

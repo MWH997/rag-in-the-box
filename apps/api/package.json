@@ -1,12 +1,20 @@
 {
   "name": "@rag/api",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "wrangler dev --local",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply rag-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply rag-db --remote",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.23",
@@ -24,6 +32,6 @@
     "@types/papaparse": "^5.5.2",
     "drizzle-kit": "^0.31.10",
     "vitest": "^4.1.9",
-    "wrangler": "^4.107.0"
+    "wrangler": "^4.127.1"
   }
 }

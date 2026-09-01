@@ -1,6 +1,22 @@
 node_modules/
-.dev.vars
-.wrangler/
 dist/
 build/
+.wrangler/
+
+# Secrets. Never commit any of these.
+.env
+.env.*
+!.env.example
+!.env.demo.example
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+
+# Local tooling output
 .playwright-mcp/
+coverage/
+.DS_Store
+*.local
+.vite/
+qa/screenshots/

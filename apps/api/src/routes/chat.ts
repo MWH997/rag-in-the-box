@@ -1,0 +1,221 @@
+import {
+  ChatRequest,
+  TIER_LIMITS,
+  findChatModel,
+  neuronsForChat,
+  usdForChat,
+  type Citation,
+} from "@rag/shared";
+import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
+import { and, eq, inArray } from "drizzle-orm";
+
+import { chatLogs, chunks, documents } from "../db/schema.js";
+import { HttpError } from "../lib/errors.js";
+import { buildContextBlock, buildUserTurn, trimHistory } from "../lib/prompt.js";
+import { embed, streamChat, type ChatTurn } from "../lib/providers/index.js";
+import { consumeQuota, refundQuota } from "../lib/quota.js";
+import { loadSettings } from "../lib/settings.js";
+import { METRICS, recordUsage } from "../lib/usage.js";
+import { queryChunks } from "../lib/vectors.js";
+import { quotaChecksFor, type AppEnv } from "../middleware/tenant.js";
+
+export const chatRoute = new Hono<AppEnv>();
+
+/** Characters of retrieved context allowed into a single prompt. */
+const CONTEXT_CHAR_BUDGET = 9_000;
+/** Answer length cap. Output tokens dominate the neuron cost of a reply. */
+const MAX_ANSWER_TOKENS = 700;
+const HISTORY_TURNS = 6;
+
+chatRoute.post("/chat", async (c) => {
+  const startedAt = Date.now();
+  const db = c.get("db");
+  const tenant = c.get("tenant");
+  const body = ChatRequest.parse(await c.req.json());
+
+  const question = body.messages.at(-1);
+  if (!question || question.role !== "user") {
+    throw new HttpError(400, "no_question", "The last message must come from the user.");
+  }
+
+  const settings = await loadSettings(db, c.env, tenant.tenantId);
+  const limits = TIER_LIMITS[settings.tier];
+  const quotaChecks = quotaChecksFor(c.env, tenant, "chat", limits.chatMessagesPerDay);
+  await consumeQuota(db, quotaChecks);
+
+  return streamSSE(c, async (stream) => {
+    const send = async (payload: unknown) => {
+      await stream.writeSSE({ data: JSON.stringify(payload) });
+    };
+
+    try {
+      await send({ type: "status", stage: "retrieving" });
+      const retrievalStarted = Date.now();
+
+      const embedding = await embed(
+        c.env,
+        settings.embeddingProvider,
+        settings.embeddingModel,
+        [question.content],
+      );
+      const vector = embedding.vectors[0];
+      if (!vector) throw new HttpError(502, "embed_failed", "Could not embed the question.");
+
+      // Read tenants are searched separately because Vectorize scopes a query to
+      // one namespace. In self-host mode there is exactly one.
+      const matches = (
+        await Promise.all(
+          tenant.readTenantIds.map((readTenantId) =>
+            queryChunks(c.env, readTenantId, vector, limits.retrievalTopK, db),
+          ),
+        )
+      )
+        .flat()
+        .filter((match) => {
+          if (!body.documentIds || body.documentIds.length === 0) return true;
+          return body.documentIds.includes(match.documentId);
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limits.retrievalTopK);
+
+      const chunkIds = matches.map((match) => match.chunkId);
+      const rows =
+        chunkIds.length > 0
+          ? await db
+              .select({
+                id: chunks.id,
+                documentId: chunks.documentId,
+                heading: chunks.heading,
+                page: chunks.page,
+                charStart: chunks.charStart,
+                charEnd: chunks.charEnd,
+                text: chunks.text,
+                filename: documents.filename,
+              })
+              .from(chunks)
+              .innerJoin(documents, eq(documents.id, chunks.documentId))
+              .where(
+                and(
+                  inArray(chunks.id, chunkIds),
+                  inArray(chunks.tenantId, tenant.readTenantIds),
+                ),
+              )
+          : [];
+
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      const passages = matches
+        .map((match, index) => {
+          const row = byId.get(match.chunkId);
+          if (!row) return null;
+          const citation: Citation = {
+            index: index + 1,
+            chunkId: row.id,
+            documentId: row.documentId,
+            filename: row.filename,
+            heading: row.heading,
+            page: row.page,
+            score: match.score,
+            charStart: row.charStart,
+            charEnd: row.charEnd,
+            snippet: row.text.slice(0, 240),
+          };
+          return { citation, text: row.text };
+        })
+        .filter((value): value is { citation: Citation; text: string } => value !== null)
+        .map((passage, index) => ({
+          ...passage,
+          citation: { ...passage.citation, index: index + 1 },
+        }));
+
+      const { block, used } = buildContextBlock(passages, CONTEXT_CHAR_BUDGET);
+      const retrievalMs = Date.now() - retrievalStarted;
+      await send({ type: "citations", citations: used });
+      await send({ type: "status", stage: "generating" });
+
+      const history = trimHistory(body.messages.slice(0, -1), HISTORY_TURNS);
+      const turns: ChatTurn[] = [
+        { role: "system", content: settings.systemPrompt },
+        ...history,
+        { role: "user", content: buildUserTurn(question.content, block) },
+      ];
+
+      const result = streamChat(c.env, settings.chatProvider, {
+        model: settings.chatModel,
+        messages: turns,
+        maxTokens: MAX_ANSWER_TOKENS,
+        temperature: 0.1,
+      });
+
+      let answer = "";
+      for await (const piece of result.stream) {
+        answer += piece.text;
+        await send({ type: "token", text: piece.text });
+      }
+
+      const usage = result.usage();
+      const model = findChatModel(settings.chatProvider, settings.chatModel);
+      const totalMs = Date.now() - startedAt;
+
+      await send({
+        type: "done",
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        model: settings.chatModel,
+        retrievalMs,
+        totalMs,
+      });
+
+      // Persistence happens after the answer is on the wire so a slow write
+      // never delays the reader.
+      await db.insert(chatLogs).values([
+        {
+          tenantId: tenant.tenantId,
+          userId: tenant.userId,
+          role: "user",
+          content: question.content,
+          model: settings.chatModel,
+        },
+        {
+          tenantId: tenant.tenantId,
+          userId: tenant.userId,
+          role: "assistant",
+          content: answer,
+          citations: JSON.stringify(used),
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          model: settings.chatModel,
+          latencyMs: totalMs,
+        },
+      ]);
+
+      await recordUsage(db, tenant.tenantId, [
+        { metric: METRICS.chatMessages, value: 1 },
+        { metric: METRICS.chatPromptTokens, value: usage.promptTokens },
+        { metric: METRICS.chatCompletionTokens, value: usage.completionTokens },
+        {
+          metric: METRICS.neurons,
+          value: model ? neuronsForChat(model, usage.promptTokens, usage.completionTokens) : 0,
+        },
+        {
+          metric: METRICS.externalCostUsd,
+          value:
+            model && settings.chatProvider !== "workers-ai"
+              ? usdForChat(model, usage.promptTokens, usage.completionTokens)
+              : 0,
+        },
+      ]);
+    } catch (cause) {
+      // The allowance is returned when the failure was ours, not the caller's.
+      await refundQuota(db, quotaChecks).catch(() => undefined);
+      const message =
+        cause instanceof HttpError
+          ? cause.message
+          : cause instanceof Error
+            ? cause.message
+            : "The answer could not be generated.";
+      const code = cause instanceof HttpError ? cause.code : "chat_failed";
+      await send({ type: "error", message, code });
+    }
+  });
+});

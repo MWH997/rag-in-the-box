@@ -5,6 +5,7 @@ import type { Env } from "../env.js";
 import { createAuth } from "../lib/auth.js";
 import { createDb } from "../db/index.js";
 import { member, organization } from "../db/schema.js";
+import { secureCompare } from "../lib/secure-compare.js";
 
 export const adminRoute = new Hono<{ Bindings: Env }>();
 
@@ -17,15 +18,20 @@ adminRoute.post("/admin/provision", async (c) => {
   const authHeader = c.req.header("Authorization");
   const providedToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : undefined;
 
-  if (!providedToken || providedToken !== c.env.ADMIN_TOKEN) {
-    return c.json({ error: { code: "unauthorized", message: "Invalid admin token" } }, 401);
+  if (!secureCompare(providedToken, c.env.ADMIN_TOKEN)) {
+    return c.json({ error: "Invalid admin token", code: "unauthorized" }, 401);
+  }
+
+  // Self-serve tenant creation has no place on the public demo deployment.
+  if (c.env.APP_MODE === "demo") {
+    return c.json({ error: "Provisioning is disabled on the demo.", code: "demo_disabled" }, 403);
   }
 
   const body = await c.req.json().catch(() => null);
   const parsed = ProvisionRequest.safeParse(body);
   if (!parsed.success) {
     return c.json(
-      { error: { code: "invalid_request", message: "Invalid request", issues: parsed.error.issues } },
+      { error: "Invalid request", code: "invalid_request", details: parsed.error.issues },
       422,
     );
   }
@@ -64,10 +70,7 @@ adminRoute.post("/admin/provision", async (c) => {
   await auth.api.requestPasswordReset({ body: { email: parsed.data.email } });
 
   if (!resetLink) {
-    return c.json(
-      { error: { code: "internal_error", message: "Could not generate invite link" } },
-      500,
-    );
+    return c.json({ error: "Could not generate invite link", code: "internal_error" }, 500);
   }
 
   return c.json({

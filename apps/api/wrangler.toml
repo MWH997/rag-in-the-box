@@ -1,23 +1,111 @@
-name = "rag-api"
+# RAG in the Box: Worker configuration.
+#
+# The top-level settings are the local development defaults, so `npm run dev`
+# works with no Cloudflare account at all. The named environments below are what
+# gets deployed. Wrangler does not inherit vars into a named environment, so each
+# one repeats every value it needs.
+#
+# scripts/deploy.sh fills in database_id from your .env file. Do not commit real
+# ids or secrets to this file.
+
+name = "rag-in-the-box"
 main = "src/index.ts"
-compatibility_date = "2026-07-04"
+compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[ai]
+binding = "AI"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "rag-db"
-database_id = "TBD"
+database_id = "local"
 migrations_dir = "drizzle"
 
-[[vectorize]]
+# Local development runs entirely offline: vectors live in D1 and the AI
+# providers are replaced with deterministic stand-ins. See docs/architecture.md.
+[vars]
+APP_MODE = "self-host"
+APP_VERSION = "1.0.0"
+ALLOWED_ORIGIN = "http://localhost:5173"
+BETTER_AUTH_URL = "http://localhost:8787"
+VECTOR_BACKEND = "d1"
+VECTOR_DIMENSIONS = "384"
+OFFLINE_AI = "true"
+DEFAULT_TIER = "free"
+PASSWORD_KDF_ITERATIONS = "100000"
+
+# ---------------------------------------------------------------------------
+# Self-hosted production
+# ---------------------------------------------------------------------------
+[env.production]
+name = "rag-in-the-box"
+
+[env.production.ai]
+binding = "AI"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "rag-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "drizzle"
+
+[[env.production.vectorize]]
 binding = "VECTORIZE"
 index_name = "rag-index"
 
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "rag-uploads"
+[env.production.observability]
+enabled = true
 
-[vars]
-DEEPSEEK_MODEL = "deepseek-chat"
-ALLOWED_ORIGIN = "http://localhost:5173"
-BETTER_AUTH_URL = "http://localhost:8787"
+[env.production.vars]
+APP_MODE = "self-host"
+APP_VERSION = "1.0.0"
+ALLOWED_ORIGIN = "https://REPLACE_WITH_WEB_ORIGIN"
+BETTER_AUTH_URL = "https://REPLACE_WITH_API_ORIGIN"
+VECTOR_BACKEND = "vectorize"
+VECTOR_DIMENSIONS = "384"
+DEFAULT_TIER = "free"
+PASSWORD_KDF_ITERATIONS = "100000"
+
+# ---------------------------------------------------------------------------
+# Public demo
+#
+# No accounts, one curated workspace, and hard daily caps so the deployment
+# stays inside every free allowance it depends on.
+# ---------------------------------------------------------------------------
+[env.demo]
+name = "rag-in-the-box-demo"
+
+[env.demo.ai]
+binding = "AI"
+
+[[env.demo.d1_databases]]
+binding = "DB"
+database_name = "rag-demo-db"
+database_id = "REPLACE_WITH_DEMO_D1_DATABASE_ID"
+migrations_dir = "drizzle"
+
+[[env.demo.vectorize]]
+binding = "VECTORIZE"
+index_name = "rag-demo-index"
+
+[env.demo.observability]
+enabled = true
+
+[env.demo.vars]
+APP_MODE = "demo"
+APP_VERSION = "1.0.0"
+ALLOWED_ORIGIN = "https://rib.mwhassan.com"
+BETTER_AUTH_URL = "https://rib-api.mwhassan.com"
+VECTOR_BACKEND = "vectorize"
+VECTOR_DIMENSIONS = "384"
+DEFAULT_TIER = "free"
+DEMO_TENANT_ID = "demo-curated"
+DEMO_VISITOR_CHATS_PER_DAY = "12"
+DEMO_VISITOR_UPLOADS_PER_DAY = "0"
+DEMO_GLOBAL_CHATS_PER_DAY = "110"
+DEMO_GLOBAL_UPLOADS_PER_DAY = "0"
+DEMO_UPLOADS_ENABLED = "false"
