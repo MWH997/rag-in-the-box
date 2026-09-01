@@ -22,12 +22,19 @@ export function SplitView({
   pane: controlledPane,
   onPaneChange,
   className,
+  as: Element = "div",
 }: {
   reader: ReactNode;
   chat: ReactNode;
   pane?: Pane;
   onPaneChange?: (pane: Pane) => void;
   className?: string;
+  /**
+   * The element to render as. The demo passes "main", because it is the whole
+   * page below the header and a page with no main landmark gives assistive
+   * technology nothing to skip the navigation to.
+   */
+  as?: "div" | "main";
 }) {
   const [uncontrolledPane, setUncontrolledPane] = useState<Pane>("chat");
   const pane = controlledPane ?? uncontrolledPane;
@@ -37,7 +44,7 @@ export function SplitView({
   };
 
   return (
-    <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", className)}>
+    <Element className={cn("flex min-h-0 min-w-0 flex-1 flex-col", className)}>
       <div
         role="tablist"
         aria-label="Which pane to show"
@@ -85,6 +92,6 @@ export function SplitView({
           {chat}
         </div>
       </div>
-    </div>
+    </Element>
   );
 }

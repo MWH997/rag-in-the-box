@@ -26,7 +26,7 @@ export function DocumentPicker({
         className={cn(
           "h-8 w-full min-w-0 max-w-[15rem] appearance-none truncate rounded-lg border border-line",
           "bg-sunken pl-2.5 pr-7 text-[0.8125rem] text-ink",
-          "focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25",
+          "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent",
         )}
       >
         {documents.map((document) => (

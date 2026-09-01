@@ -134,7 +134,7 @@ apps/api        Hono on Cloudflare Workers. Auth, ingestion, retrieval, chat.
 apps/web        React on Cloudflare Pages. Reader, chat, usage, settings.
 packages/shared Contracts and the chunker, shared by both.
 scripts         Deployment and demo seeding.
-qa              The layout audit used to check every route at six widths.
+qa              Layout and accessibility audits, and an API contract check.
 docs            Architecture, hosting, free tier, local models, demo, security.
 ```
 
@@ -150,6 +150,7 @@ docs            Architecture, hosting, free tier, local models, demo, security.
 | `npm run db:migrate:local`      | Apply migrations to the local database          |
 | `apps/api/scripts/smoke.sh`     | End to end check against a running local API    |
 | `./scripts/deploy.sh --dry-run` | Show what a deployment would do                 |
+| `node qa/contract.mjs`          | Check API responses against the shared schemas  |
 
 ## Contributing
 

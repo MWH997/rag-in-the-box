@@ -155,6 +155,7 @@ export function Demo() {
       )}
 
       <SplitView
+        as="main"
         pane={pane}
         onPaneChange={setPane}
         reader={
