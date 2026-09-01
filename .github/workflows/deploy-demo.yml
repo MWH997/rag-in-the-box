@@ -1,7 +1,7 @@
 name: Deploy demo
 
-# Publishes the hosted demo. Runs only when the workflow is started by hand,
-# so a push to main never spends Cloudflare quota on its own.
+# Publishes the hosted demo. Started by hand only, so a push to main never
+# spends Cloudflare quota or changes a live site on its own.
 on:
   workflow_dispatch:
     inputs:
@@ -17,10 +17,30 @@ env:
   NODE_VERSION: "24"
 
 jobs:
-  deploy:
-    name: Deploy to Cloudflare
+  # Nothing is deployed before the same checks that gate a push have passed.
+  # Deploying a build that CI would reject is the one thing a deploy button
+  # should not make easy.
+  verify:
+    name: Verify before deploying
     runs-on: ubuntu-latest
     if: inputs.confirm == 'deploy'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Typecheck, lint, format, tests
+        run: npm run verify
+      - name: Prose, secrets, contract, layout and accessibility
+        run: npm run qa
+
+  deploy:
+    name: Deploy to Cloudflare
+    needs: verify
+    runs-on: ubuntu-latest
     environment: demo
     steps:
       - uses: actions/checkout@v5
@@ -32,8 +52,86 @@ jobs:
 
       - run: npm ci
 
+      # There is no .env.demo in a checkout, because it holds credentials and is
+      # ignored by git. The script reads the environment when the file is
+      # absent, so the same script runs here and on a laptop.
+      #
+      # Every name below has to exist as a secret or a variable on the "demo"
+      # environment. A missing one fails the script with the name of what is
+      # missing rather than deploying something half configured.
+      - name: Check the credentials before touching anything
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          DEMO_COOKIE_SECRET: ${{ secrets.DEMO_COOKIE_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          LLAMA_CLOUD_API_KEY: ${{ secrets.LLAMA_CLOUD_API_KEY }}
+          LLAMA_CLOUD_BASE_URL: ${{ vars.LLAMA_CLOUD_BASE_URL }}
+        run: |
+          # The checker reads a file, so the environment is written to a
+          # temporary one that never leaves the runner.
+          umask 077
+          : > /tmp/env.check
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID BETTER_AUTH_SECRET \
+                      ADMIN_TOKEN DEMO_COOKIE_SECRET OPENAI_API_KEY DEEPSEEK_API_KEY \
+                      LLAMA_CLOUD_API_KEY LLAMA_CLOUD_BASE_URL; do
+            printf '%s=%s\n' "$name" "${!name}" >> /tmp/env.check
+          done
+          ./scripts/check-credentials.sh --file /tmp/env.check
+          rm -f /tmp/env.check
+
       - name: Deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          DEMO_COOKIE_SECRET: ${{ secrets.DEMO_COOKIE_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          LLAMA_CLOUD_API_KEY: ${{ secrets.LLAMA_CLOUD_API_KEY }}
+          LLAMA_CLOUD_BASE_URL: ${{ vars.LLAMA_CLOUD_BASE_URL }}
+          API_ORIGIN: ${{ vars.API_ORIGIN }}
+          WEB_ORIGIN: ${{ vars.WEB_ORIGIN }}
+          ALLOWED_ORIGIN_EXTRA: ${{ vars.ALLOWED_ORIGIN_EXTRA }}
+          WORKER_NAME: ${{ vars.WORKER_NAME }}
+          PAGES_PROJECT: ${{ vars.PAGES_PROJECT }}
+          D1_DATABASE_NAME: ${{ vars.D1_DATABASE_NAME }}
+          VECTORIZE_INDEX_NAME: ${{ vars.VECTORIZE_INDEX_NAME }}
+          VECTOR_DIMENSIONS: ${{ vars.VECTOR_DIMENSIONS }}
+          DEFAULT_TIER: ${{ vars.DEFAULT_TIER }}
+          PASSWORD_KDF_ITERATIONS: ${{ vars.PASSWORD_KDF_ITERATIONS }}
+          DEMO_TENANT_ID: ${{ vars.DEMO_TENANT_ID }}
+          DEMO_VISITOR_CHATS_PER_DAY: ${{ vars.DEMO_VISITOR_CHATS_PER_DAY }}
+          DEMO_GLOBAL_CHATS_PER_DAY: ${{ vars.DEMO_GLOBAL_CHATS_PER_DAY }}
+          DEMO_UPLOADS_ENABLED: ${{ vars.DEMO_UPLOADS_ENABLED }}
+          DEMO_VISITOR_UPLOADS_PER_DAY: ${{ vars.DEMO_VISITOR_UPLOADS_PER_DAY }}
+          DEMO_GLOBAL_UPLOADS_PER_DAY: ${{ vars.DEMO_GLOBAL_UPLOADS_PER_DAY }}
+          DEMO_MAX_UPLOAD_BYTES: ${{ vars.DEMO_MAX_UPLOAD_BYTES }}
+          DEMO_RETENTION_HOURS: ${{ vars.DEMO_RETENTION_HOURS }}
+          VITE_BRAND_NAME: ${{ vars.VITE_BRAND_NAME }}
+          VITE_REPO_URL: ${{ vars.VITE_REPO_URL }}
+          VITE_DEMO_URL: ${{ vars.VITE_DEMO_URL }}
+          VITE_AUTHOR_NAME: ${{ vars.VITE_AUTHOR_NAME }}
+          VITE_AUTHOR_URL: ${{ vars.VITE_AUTHOR_URL }}
+          VITE_SETUP_OFFER: ${{ vars.VITE_SETUP_OFFER }}
+          VITE_SETUP_PRICE: ${{ vars.VITE_SETUP_PRICE }}
+          VITE_SETUP_EMAIL: ${{ vars.VITE_SETUP_EMAIL }}
+          VITE_DEMO_SUGGESTIONS: ${{ vars.VITE_DEMO_SUGGESTIONS }}
         run: ./scripts/deploy.sh --profile demo --non-interactive
+
+      - name: Check the deployment answers
+        env:
+          API_ORIGIN: ${{ vars.API_ORIGIN }}
+        run: |
+          # A deploy that reports success and then serves nothing is the failure
+          # worth catching here, while the run is still red and someone is
+          # watching it.
+          set -e
+          health=$(curl -fsS "$API_ORIGIN/health")
+          echo "$health"
+          echo "$health" | grep -q '"ok":true'
+          echo "$health" | grep -q '"mode":"demo"'
