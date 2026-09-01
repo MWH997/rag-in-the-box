@@ -362,7 +362,15 @@ if [ "$SKIP_WEB" = false ]; then
   cd "$ROOT"
   step "Building the interface"
   run npm run build:shared
-  VITE_API_URL="$API_ORIGIN" run npm run build --workspace apps/web
+  # VITE_SITE_URL fills the absolute addresses in the share metadata. Until a
+  # custom domain's DNS record exists the site only answers at its pages.dev
+  # address, and a card pointing at the domain would fetch its image from a host
+  # that is not serving yet, so the reachable address wins while it is the only
+  # one that works.
+  SITE_URL="${ALLOWED_ORIGIN_EXTRA:-$WEB_ORIGIN}"
+  SITE_URL="${SITE_URL%%,*}"
+  VITE_API_URL="$API_ORIGIN" VITE_SITE_URL="$SITE_URL" run npm run build --workspace apps/web
+  ok "share metadata points at $SITE_URL"
   ok "built against $API_ORIGIN"
 
   step "Deploying the interface"
