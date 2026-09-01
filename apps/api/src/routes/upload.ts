@@ -12,6 +12,7 @@ import { Hono, type Context } from "hono";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { chunks, documentSegments, documents } from "../db/schema.js";
+import { batchForTable } from "../lib/d1.js";
 import { HttpError } from "../lib/errors.js";
 import { embed, getJobMarkdown, getJobStatus, submitParseJob } from "../lib/providers/index.js";
 import { consumeQuota } from "../lib/quota.js";
@@ -55,14 +56,13 @@ function kindOf(filename: string): SourceKind {
 }
 
 /**
- * Batch sizes for writing an extracted document.
+ * Passages embedded per provider call on the server-side path.
  *
- * These are bounded by D1's 100 KB cap on a single SQL statement and by how
- * many inputs an embedding provider accepts per call, not by tier, because
- * exceeding either produces a hard failure rather than a slow request.
+ * Database writes are split separately, by D1's bound-parameter limit, in
+ * src/lib/d1.ts. This number only controls how many texts go to the embedding
+ * provider at once.
  */
-const SEGMENT_INSERT_BATCH = 8;
-const CHUNK_INSERT_BATCH = 24;
+const CHUNK_EMBED_BATCH = 24;
 
 uploadRoute.post("/documents/upload", async (c) => {
   const db = c.get("db");
@@ -200,9 +200,9 @@ async function ingestMarkdown(
   const limits = TIER_LIMITS[settings.tier];
 
   const segments = segmentMarkdown(markdown);
-  for (let index = 0; index < segments.length; index += SEGMENT_INSERT_BATCH) {
+  for (const batch of batchForTable(documentSegments, segments)) {
     await db.insert(documentSegments).values(
-      segments.slice(index, index + SEGMENT_INSERT_BATCH).map((segment) => ({
+      batch.map((segment) => ({
         documentId,
         tenantId: tenant.tenantId,
         seq: segment.seq,
@@ -223,8 +223,8 @@ async function ingestMarkdown(
   }
 
   let embeddingTokens = 0;
-  for (let index = 0; index < produced.length; index += CHUNK_INSERT_BATCH) {
-    const batch = produced.slice(index, index + CHUNK_INSERT_BATCH);
+  for (let index = 0; index < produced.length; index += CHUNK_EMBED_BATCH) {
+    const batch = produced.slice(index, index + CHUNK_EMBED_BATCH);
     const embedded = await embed(
       c.env,
       settings.embeddingProvider,
@@ -233,21 +233,24 @@ async function ingestMarkdown(
     );
     embeddingTokens += embedded.tokens;
 
-    await db.insert(chunks).values(
-      batch.map((chunk) => ({
-        id: `${documentId}:${chunk.seq}`,
-        documentId,
-        tenantId: tenant.tenantId,
-        seq: chunk.seq,
-        heading: chunk.heading,
-        page: chunk.page,
-        charStart: chunk.charStart,
-        charEnd: chunk.charEnd,
-        text: chunk.text,
-        tokenEstimate: chunk.tokenEstimate,
-        embedded: 1,
-      })),
-    );
+    for (const insertBatch of batchForTable(chunks, batch)) {
+      await db.insert(chunks).values(
+        insertBatch.map((chunk) => ({
+          id: `${documentId}:${chunk.seq}`,
+          documentId,
+          tenantId: tenant.tenantId,
+          seq: chunk.seq,
+          heading: chunk.heading,
+          page: chunk.page,
+          charStart: chunk.charStart,
+          charEnd: chunk.charEnd,
+          bodyStart: chunk.bodyStart,
+          text: chunk.text,
+          tokenEstimate: chunk.tokenEstimate,
+          embedded: 1,
+        })),
+      );
+    }
 
     await upsertChunks(
       c.env,
@@ -306,8 +309,8 @@ uploadRoute.post("/documents/reindex", async (c) => {
       .from(chunks)
       .where(and(eq(chunks.documentId, documentId), inArray(chunks.tenantId, [tenant.tenantId])));
 
-    for (let index = 0; index < rows.length; index += CHUNK_INSERT_BATCH) {
-      const batch = rows.slice(index, index + CHUNK_INSERT_BATCH);
+    for (let index = 0; index < rows.length; index += CHUNK_EMBED_BATCH) {
+      const batch = rows.slice(index, index + CHUNK_EMBED_BATCH);
       const embedded = await embed(
         c.env,
         settings.embeddingProvider,

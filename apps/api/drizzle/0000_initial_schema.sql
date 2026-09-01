@@ -30,6 +30,7 @@ CREATE TABLE `chunks` (
 	`page` integer,
 	`char_start` integer NOT NULL,
 	`char_end` integer NOT NULL,
+	`body_start` integer DEFAULT 0 NOT NULL,
 	`text` text NOT NULL,
 	`token_estimate` integer DEFAULT 0 NOT NULL,
 	`embedded` integer DEFAULT 0 NOT NULL,

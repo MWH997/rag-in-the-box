@@ -34,8 +34,18 @@ export interface Chunk {
   seq: number;
   text: string;
   heading: string | null;
+  /** Document offset of the first character of `text`, overlap included. */
   charStart: number;
   charEnd: number;
+  /**
+   * Document offset where this chunk's own content starts.
+   *
+   * Consecutive chunks overlap, so `text` begins with a tail carried over from
+   * the chunk before it. That tail helps retrieval but it belongs to the
+   * previous section, so anything pointing a reader at this chunk, a citation
+   * above all, must start here rather than at `charStart`.
+   */
+  bodyStart: number;
   page: number | null;
   tokenEstimate: number;
 }
@@ -259,6 +269,8 @@ export function chunkMarkdown(
 
     let buffer: Block[] = [];
     let bufferLength = 0;
+    // Characters at the head of `buffer` carried over from the previous chunk.
+    let carriedLength = 0;
 
     const emit = () => {
       if (buffer.length === 0) return;
@@ -268,25 +280,39 @@ export function chunkMarkdown(
       const text = buffer.map((block) => block.text).join("\n\n");
       const charStart = first.start;
       const charEnd = last.start + last.text.length;
+      // The carried block is joined to the next with two newlines, so the
+      // chunk's own content starts just past it.
+      const bodyStart =
+        carriedLength > 0 && buffer.length > 1 ? charStart + carriedLength + 2 : charStart;
+
       chunks.push({
         seq: seq++,
         text,
         heading: section.heading,
         charStart,
         charEnd,
-        page: pageForOffset(pageBreaks, charStart),
+        bodyStart: Math.min(bodyStart, charEnd),
+        page: pageForOffset(pageBreaks, Math.min(bodyStart, charEnd)),
         tokenEstimate: estimateTokens(text),
       });
+
       // Carry the tail of this chunk into the next one as overlap context.
-      if (overlapChars > 0 && text.length > overlapChars) {
+      // Never after a table: the tail would be a partial row, which reads as
+      // broken markdown and gives retrieval a fragment with no column names.
+      if (overlapChars > 0 && text.length > overlapChars && !last.isTable) {
         const tail = text.slice(-overlapChars);
         const cut = tail.indexOf(" ");
         const carried = cut >= 0 ? tail.slice(cut + 1) : tail;
-        buffer = carried.trim()
-          ? [{ text: carried, start: charEnd - carried.length, isTable: false }]
-          : [];
+        if (carried.trim()) {
+          buffer = [{ text: carried, start: charEnd - carried.length, isTable: false }];
+          carriedLength = carried.length;
+        } else {
+          buffer = [];
+          carriedLength = 0;
+        }
       } else {
         buffer = [];
+        carriedLength = 0;
       }
       bufferLength = buffer.reduce((sum, block) => sum + block.text.length + 2, 0);
     };

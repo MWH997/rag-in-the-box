@@ -13,6 +13,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { AppEnv } from "../middleware/tenant.js";
 import { quotaChecksFor } from "../middleware/tenant.js";
 import { chunks, documentSegments, documents } from "../db/schema.js";
+import { batchForTable } from "../lib/d1.js";
 import { HttpError } from "../lib/errors.js";
 import { embed } from "../lib/providers/index.js";
 import { consumeQuota } from "../lib/quota.js";
@@ -190,9 +191,11 @@ documentsRoute.post("/documents/:id/ingest", async (c) => {
     );
   }
 
-  if (body.segments.length > 0) {
+  // Inserts are split by bound-parameter count, not row count: D1 rejects a
+  // statement with more than 100 parameters, and one row binds one per column.
+  for (const batch of batchForTable(documentSegments, body.segments)) {
     await db.insert(documentSegments).values(
-      body.segments.map((segment) => ({
+      batch.map((segment) => ({
         documentId: document.id,
         tenantId: tenant.tenantId,
         seq: segment.seq,
@@ -215,21 +218,24 @@ documentsRoute.post("/documents/:id/ingest", async (c) => {
     );
     embeddingTokens = result.tokens;
 
-    await db.insert(chunks).values(
-      body.chunks.map((chunk) => ({
-        id: chunkId(document.id, chunk.seq),
-        documentId: document.id,
-        tenantId: tenant.tenantId,
-        seq: chunk.seq,
-        heading: chunk.heading,
-        page: chunk.page,
-        charStart: chunk.charStart,
-        charEnd: chunk.charEnd,
-        text: chunk.text,
-        tokenEstimate: chunk.tokenEstimate,
-        embedded: 1,
-      })),
-    );
+    for (const batch of batchForTable(chunks, body.chunks)) {
+      await db.insert(chunks).values(
+        batch.map((chunk) => ({
+          id: chunkId(document.id, chunk.seq),
+          documentId: document.id,
+          tenantId: tenant.tenantId,
+          seq: chunk.seq,
+          heading: chunk.heading,
+          page: chunk.page,
+          charStart: chunk.charStart,
+          charEnd: chunk.charEnd,
+          bodyStart: chunk.bodyStart,
+          text: chunk.text,
+          tokenEstimate: chunk.tokenEstimate,
+          embedded: 1,
+        })),
+      );
+    }
 
     await upsertChunks(
       c.env,

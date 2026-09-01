@@ -92,6 +92,8 @@ export const IngestChunk = z.object({
   page: z.number().int().positive().nullable(),
   charStart: z.number().int().nonnegative(),
   charEnd: z.number().int().nonnegative(),
+  /** Where this chunk's own content starts, past any carried overlap. */
+  bodyStart: z.number().int().nonnegative(),
   text: z.string().min(1).max(8_000),
   tokenEstimate: z.number().int().nonnegative(),
 });

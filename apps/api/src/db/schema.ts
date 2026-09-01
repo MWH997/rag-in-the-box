@@ -101,6 +101,14 @@ export const chunks = sqliteTable(
     page: integer("page"),
     charStart: integer("char_start").notNull(),
     charEnd: integer("char_end").notNull(),
+    /**
+     * Offset where the chunk's own content begins.
+     *
+     * Chunks overlap, so `text` opens with a tail carried from the chunk
+     * before it. A citation points here rather than at `char_start`, so the
+     * reader lands on this passage and not on the end of the previous one.
+     */
+    bodyStart: integer("body_start").notNull().default(0),
     text: text("text").notNull(),
     tokenEstimate: integer("token_estimate").notNull().default(0),
     embedded: integer("embedded").notNull().default(0),

@@ -82,7 +82,15 @@ export function offlineChat(options: ChatStreamOptions): ChatStreamResult {
   const passages = [...lastTurn.matchAll(/\[(\d+)\]\s([^\n]+)\n([\s\S]*?)(?=\n\n\[\d+\]|\n\nQuestion:|$)/g)];
 
   const sentences = passages.slice(0, 3).map((match, index) => {
-    const body = (match[3] ?? "").replace(/\s+/g, " ").trim();
+    // Quoted passages carry their own markdown. Left as is, a heading marker
+    // from the source would be re-parsed as a heading inside the answer's list
+    // item, so the markers are stripped before quoting.
+    const body = (match[3] ?? "")
+      .replace(/\s+/g, " ")
+      .replace(/(^|\s)#{1,6}\s+/g, "$1")
+      .replace(/(^|\s)[*_]{1,3}(\S)/g, "$1$2")
+      .replace(/\|/g, " ")
+      .trim();
     return `${body.slice(0, 220)}${body.length > 220 ? "..." : ""} [${match[1] ?? index + 1}]`;
   });
 

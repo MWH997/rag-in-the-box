@@ -27,8 +27,8 @@ describe("parseCsv", () => {
 
     const sectionHeadings = result.match(/^## Rows .+$/gm) ?? [];
     expect(sectionHeadings.length).toBe(4); // ceil(650 / 200)
-    expect(sectionHeadings[0]).toBe("## Rows 1-200");
-    expect(sectionHeadings[3]).toBe("## Rows 601-650");
+    expect(sectionHeadings[0]).toBe("## Rows 1 to 200");
+    expect(sectionHeadings[3]).toBe("## Rows 601 to 650");
 
     // every section's table still has its own header/separator/rows intact
     const tableHeaders = result.match(/^\| name \| value \|$/gm) ?? [];

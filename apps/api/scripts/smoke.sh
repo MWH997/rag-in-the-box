@@ -54,7 +54,7 @@ pass "document $DOC_ID"
 echo "5. ingest one batch"
 INGEST="$(curl -sS -b "$JAR_A" -X POST "$BASE/api/documents/$DOC_ID/ingest" \
   -H 'content-type: application/json' \
-  -d '{"segments":[{"seq":0,"charStart":0,"page":1,"markdown":"# Falcon heavy\n\nThe rocket carries 63800 kg to low earth orbit."}],"chunks":[{"seq":0,"heading":"Falcon heavy","page":1,"charStart":0,"charEnd":80,"text":"The Falcon Heavy rocket carries 63800 kg to low earth orbit.","tokenEstimate":15},{"seq":1,"heading":"Falcon heavy","page":1,"charStart":80,"charEnd":150,"text":"Its first stage boosters return to the launch site and land upright.","tokenEstimate":16}],"done":true}')"
+  -d '{"segments":[{"seq":0,"charStart":0,"page":1,"markdown":"# Falcon heavy\n\nThe rocket carries 63800 kg to low earth orbit."}],"chunks":[{"seq":0,"heading":"Falcon heavy","page":1,"charStart":0,"charEnd":80,"bodyStart":0,"text":"The Falcon Heavy rocket carries 63800 kg to low earth orbit.","tokenEstimate":15},{"seq":1,"heading":"Falcon heavy","page":1,"charStart":80,"charEnd":150,"bodyStart":80,"text":"Its first stage boosters return to the launch site and land upright.","tokenEstimate":16}],"done":true}')"
 printf '%s' "$INGEST" | grep -q '"status":"active"' || fail "ingest did not finish: $INGEST"
 printf '%s' "$INGEST" | grep -q '"embedded":2' || fail "wrong embedded count: $INGEST"
 pass "two chunks embedded and stored"

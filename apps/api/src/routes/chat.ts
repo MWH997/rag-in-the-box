@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { and, eq, inArray } from "drizzle-orm";
 
+import { isOfflineAi } from "../env.js";
 import { chatLogs, chunks, documents } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
 import { buildContextBlock, buildUserTurn, trimHistory } from "../lib/prompt.js";
@@ -90,6 +91,7 @@ chatRoute.post("/chat", async (c) => {
                 page: chunks.page,
                 charStart: chunks.charStart,
                 charEnd: chunks.charEnd,
+                bodyStart: chunks.bodyStart,
                 text: chunks.text,
                 filename: documents.filename,
               })
@@ -108,6 +110,10 @@ chatRoute.post("/chat", async (c) => {
         .map((match, index) => {
           const row = byId.get(match.chunkId);
           if (!row) return null;
+          // The snippet skips the overlap carried from the previous chunk, so
+          // the reader is pointed at this passage rather than at the tail of
+          // the one before it.
+          const bodyOffset = Math.max(0, Math.min(row.bodyStart - row.charStart, row.text.length - 1));
           const citation: Citation = {
             index: index + 1,
             chunkId: row.id,
@@ -116,9 +122,9 @@ chatRoute.post("/chat", async (c) => {
             heading: row.heading,
             page: row.page,
             score: match.score,
-            charStart: row.charStart,
+            charStart: row.bodyStart,
             charEnd: row.charEnd,
-            snippet: row.text.slice(0, 240),
+            snippet: row.text.slice(bodyOffset, bodyOffset + 260),
           };
           return { citation, text: row.text };
         })
@@ -154,14 +160,18 @@ chatRoute.post("/chat", async (c) => {
       }
 
       const usage = result.usage();
-      const model = findChatModel(settings.chatProvider, settings.chatModel);
+      // Nothing was billed when the offline provider answered, so the report
+      // names it rather than crediting a model that never ran.
+      const offline = isOfflineAi(c.env);
+      const model = offline ? undefined : findChatModel(settings.chatProvider, settings.chatModel);
+      const reportedModel = offline ? "offline development provider" : settings.chatModel;
       const totalMs = Date.now() - startedAt;
 
       await send({
         type: "done",
         promptTokens: usage.promptTokens,
         completionTokens: usage.completionTokens,
-        model: settings.chatModel,
+        model: reportedModel,
         retrievalMs,
         totalMs,
       });
@@ -174,7 +184,7 @@ chatRoute.post("/chat", async (c) => {
           userId: tenant.userId,
           role: "user",
           content: question.content,
-          model: settings.chatModel,
+          model: reportedModel,
         },
         {
           tenantId: tenant.tenantId,
@@ -184,7 +194,7 @@ chatRoute.post("/chat", async (c) => {
           citations: JSON.stringify(used),
           promptTokens: usage.promptTokens,
           completionTokens: usage.completionTokens,
-          model: settings.chatModel,
+          model: reportedModel,
           latencyMs: totalMs,
         },
       ]);

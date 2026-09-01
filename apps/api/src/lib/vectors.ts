@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { indexDimensions, vectorBackend, type Env } from "../env.js";
 import { createDb, type Database } from "../db/index.js";
 import { chunkVectors } from "../db/schema.js";
+import { batchForTable } from "./d1.js";
 
 /**
  * Vector storage, tenant-scoped without exception.
@@ -104,20 +105,22 @@ export async function upsertChunks(
 
   if (vectorBackend(env) === "d1") {
     const database = db ?? createDb(env.DB);
-    await database
-      .insert(chunkVectors)
-      .values(
-        chunks.map((chunk) => ({
-          id: chunk.id,
-          tenantId,
-          documentId: chunk.documentId,
-          vector: encodeVector(chunk.vector) as unknown as Buffer,
-        })),
-      )
-      .onConflictDoUpdate({
-        target: chunkVectors.id,
-        set: { vector: sql`excluded.vector` },
-      });
+    for (const batch of batchForTable(chunkVectors, chunks)) {
+      await database
+        .insert(chunkVectors)
+        .values(
+          batch.map((chunk) => ({
+            id: chunk.id,
+            tenantId,
+            documentId: chunk.documentId,
+            vector: encodeVector(chunk.vector) as unknown as Buffer,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: chunkVectors.id,
+          set: { vector: sql`excluded.vector` },
+        });
+    }
     return;
   }
 

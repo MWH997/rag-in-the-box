@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { Database } from "../db/index.js";
 import { usageDaily } from "../db/schema.js";
+import { batchForTable } from "./d1.js";
 import { utcDay } from "./time.js";
 
 export const METRICS = {
@@ -37,13 +38,15 @@ export async function recordUsage(
   const meaningful = deltas.filter((delta) => delta.value !== 0);
   if (meaningful.length === 0) return;
 
-  await db
-    .insert(usageDaily)
-    .values(meaningful.map((delta) => ({ tenantId, day, metric: delta.metric, value: delta.value })))
-    .onConflictDoUpdate({
-      target: [usageDaily.tenantId, usageDaily.day, usageDaily.metric],
-      set: { value: sql`${usageDaily.value} + excluded.value` },
-    });
+  for (const batch of batchForTable(usageDaily, meaningful)) {
+    await db
+      .insert(usageDaily)
+      .values(batch.map((delta) => ({ tenantId, day, metric: delta.metric, value: delta.value })))
+      .onConflictDoUpdate({
+        target: [usageDaily.tenantId, usageDaily.day, usageDaily.metric],
+        set: { value: sql`${usageDaily.value} + excluded.value` },
+      });
+  }
 }
 
 export type UsageMap = Record<string, number>;
