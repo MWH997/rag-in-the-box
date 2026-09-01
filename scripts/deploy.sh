@@ -124,6 +124,17 @@ fi
 if [ "${OFFLINE_AI:-}" = "true" ]; then
   die "OFFLINE_AI is set. That switch replaces the models with local stand-ins and must never be deployed."
 fi
+# The S3 endpoint is per account, so one copied from another project points at
+# somebody else's storage. Nothing in the Worker reads it, but a wrong value in
+# the env file will waste an afternoon of backup debugging.
+if [ -n "${R2_S3_ENDPOINT:-}" ] && ! printf '%s' "$R2_S3_ENDPOINT" | grep -q "$CLOUDFLARE_ACCOUNT_ID"; then
+  warn "R2_S3_ENDPOINT does not contain CLOUDFLARE_ACCOUNT_ID. It should look like https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com"
+fi
+
+if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -z "${R2_SECRET_ACCESS_KEY:-}" ]; then
+  warn "R2_ACCESS_KEY_ID is set but R2_SECRET_ACCESS_KEY is empty. Both are needed to reach the bucket from outside a Worker."
+fi
+
 if [ "${VECTOR_BACKEND:-}" = "d1" ]; then
   warn "VECTOR_BACKEND is d1. Searching by scan reads one D1 row per stored vector, and Cloudflare has enforced 5,000,000 row reads a day since 1 September 2026, so a full scan buys about 1,250 questions a day. Vectorize reads no rows to search."
 fi
@@ -261,6 +272,12 @@ WEB_ORIGIN="${WEB_ORIGIN:-https://${PAGES_PROJECT}.pages.dev}"
   echo "VECTOR_DIMENSIONS = \"$VECTOR_DIMENSIONS\""
   echo "DEFAULT_TIER = \"$DEFAULT_TIER\""
   echo "PASSWORD_KDF_ITERATIONS = \"$PASSWORD_KDF_ITERATIONS\""
+  # Endpoint overrides are configuration rather than secrets, and are only
+  # written when set so the code keeps its own vendor defaults otherwise.
+  [ -n "${OPENAI_BASE_URL:-}" ] && echo "OPENAI_BASE_URL = \"$OPENAI_BASE_URL\""
+  [ -n "${DEEPSEEK_BASE_URL:-}" ] && echo "DEEPSEEK_BASE_URL = \"$DEEPSEEK_BASE_URL\""
+  [ -n "${LLAMA_CLOUD_BASE_URL:-}" ] && echo "LLAMA_CLOUD_BASE_URL = \"$LLAMA_CLOUD_BASE_URL\""
+  [ -n "${OLLAMA_BASE_URL:-}" ] && echo "OLLAMA_BASE_URL = \"$OLLAMA_BASE_URL\""
   if [ "$PROFILE" = "demo" ]; then
     echo "DEMO_TENANT_ID = \"${DEMO_TENANT_ID:-demo-curated}\""
     echo "DEMO_VISITOR_CHATS_PER_DAY = \"${DEMO_VISITOR_CHATS_PER_DAY:-12}\""

@@ -42,6 +42,18 @@ export interface Env {
   DEEPSEEK_API_KEY?: string;
   LLAMA_CLOUD_API_KEY?: string;
   /**
+   * Endpoint overrides, each without a trailing slash.
+   *
+   * These exist because the vendor default is not always right. LlamaCloud
+   * runs a separate EU region and its keys are region specific, so a European
+   * key fails against the North American endpoint with no way to correct it.
+   * OpenAI and DeepSeek are overridable for the same reason a proxy or a
+   * compatible gateway is common in front of them.
+   */
+  OPENAI_BASE_URL?: string;
+  DEEPSEEK_BASE_URL?: string;
+  LLAMA_CLOUD_BASE_URL?: string;
+  /**
    * Base URL of a local Ollama server, without the /v1 suffix.
    *
    * Setting this is what enables the local provider, so there is deliberately
@@ -88,6 +100,13 @@ export function capabilities(env: Env): Capabilities {
 export function ollamaBaseUrl(env: Env): string | null {
   const raw = env.OLLAMA_BASE_URL?.trim();
   if (!raw) return null;
+  return raw.replace(/\/+$/, "");
+}
+
+/** An endpoint override, trimmed of any trailing slash, or the vendor default. */
+export function baseUrl(override: string | undefined, fallback: string): string {
+  const raw = override?.trim();
+  if (!raw) return fallback;
   return raw.replace(/\/+$/, "");
 }
 

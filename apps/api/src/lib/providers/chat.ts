@@ -1,6 +1,6 @@
 import type { ChatProvider } from "@rag/shared";
 
-import { ollamaBaseUrl, servedOffline, type Env } from "../../env.js";
+import { baseUrl, ollamaBaseUrl, servedOffline, type Env } from "../../env.js";
 import { offlineChat } from "./offline.js";
 import {
   ProviderError,
@@ -36,7 +36,10 @@ function openAiCompatibleTarget(
     };
   }
   return {
-    base: OPENAI_COMPATIBLE_BASE[provider],
+    base: baseUrl(
+      provider === "openai" ? env.OPENAI_BASE_URL : env.DEEPSEEK_BASE_URL,
+      OPENAI_COMPATIBLE_BASE[provider],
+    ),
     apiKey: (provider === "openai" ? env.OPENAI_API_KEY : env.DEEPSEEK_API_KEY) ?? null,
     keyName: provider === "openai" ? "OPENAI_API_KEY" : "DEEPSEEK_API_KEY",
   };

@@ -1,4 +1,4 @@
-import type { Env } from "../../env.js";
+import { baseUrl, type Env } from "../../env.js";
 import { ProviderError } from "./types.js";
 
 /**
@@ -14,7 +14,17 @@ import { ProviderError } from "./types.js";
  * cost_effective is the default tier here rather than agentic at 10 credits.
  */
 
-const BASE_URL = "https://api.cloud.llamaindex.ai/api/v2/parse";
+/**
+ * North America is the default region. LlamaCloud also runs an EU region at
+ * https://api.cloud.eu.llamaindex.ai and its keys are region specific, so a key
+ * created in the EU fails against this host. LLAMA_CLOUD_BASE_URL is what makes
+ * that fixable rather than a dead end.
+ */
+const DEFAULT_HOST = "https://api.cloud.llamaindex.ai";
+
+function parseBase(env: Env): string {
+  return `${baseUrl(env.LLAMA_CLOUD_BASE_URL, DEFAULT_HOST)}/api/v2/parse`;
+}
 
 export type LlamaParseTier = "fast" | "cost_effective" | "agentic" | "agentic_plus";
 
@@ -44,7 +54,7 @@ export async function submitParseJob(
   form.append("file", file, filename);
   form.append("configuration", JSON.stringify({ tier, version: "latest" }));
 
-  const response = await fetch(`${BASE_URL}/upload`, {
+  const response = await fetch(`${parseBase(env)}/upload`, {
     method: "POST",
     headers: { authorization: `Bearer ${requireKey(env)}` },
     body: form,
@@ -65,7 +75,7 @@ export async function submitParseJob(
 }
 
 export async function getJobStatus(env: Env, jobId: string): Promise<LlamaParseStatus> {
-  const response = await fetch(`${BASE_URL}/${encodeURIComponent(jobId)}`, {
+  const response = await fetch(`${parseBase(env)}/${encodeURIComponent(jobId)}`, {
     headers: { authorization: `Bearer ${requireKey(env)}` },
   });
   if (!response.ok) {
@@ -88,7 +98,7 @@ export async function getJobStatus(env: Env, jobId: string): Promise<LlamaParseS
 }
 
 export async function getJobMarkdown(env: Env, jobId: string): Promise<string> {
-  const url = `${BASE_URL}/${encodeURIComponent(jobId)}?expand=markdown_full`;
+  const url = `${parseBase(env)}/${encodeURIComponent(jobId)}?expand=markdown_full`;
   const response = await fetch(url, {
     headers: { authorization: `Bearer ${requireKey(env)}` },
   });

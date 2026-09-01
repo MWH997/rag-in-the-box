@@ -121,12 +121,46 @@ describe("the environment templates", () => {
     }
   });
 
-  it("offer R2 in both, since the Worker uses the binding when it exists", () => {
-    // The Worker stores the original of a scanned document in R2 and deletes it
-    // with the document. Without a way to name a bucket, that code could never
-    // run and the settings screen could only ever report R2 as unavailable.
-    expect(selfHost.has("R2_BUCKET_NAME")).toBe(true);
-    expect(demo.has("R2_BUCKET_NAME")).toBe(true);
+  it("offer every part of R2, not just the binding", () => {
+    // Two separate things, both needed, and the second was missed first time.
+    // R2_BUCKET_NAME is what the Worker binds to. The S3 credentials are how
+    // anyone reaches the same bucket from outside a Worker, which is the only
+    // way to take a backup or migrate off. Naming the bucket and leaving no
+    // way to read it elsewhere is half a feature.
+    for (const key of [
+      "R2_BUCKET_NAME",
+      "R2_ACCESS_KEY_ID",
+      "R2_SECRET_ACCESS_KEY",
+      "R2_S3_ENDPOINT",
+    ]) {
+      expect(selfHost.has(key), `.env.example is missing ${key}`).toBe(true);
+      expect(demo.has(key), `.env.demo.example is missing ${key}`).toBe(true);
+    }
+  });
+
+  it("let every hosted provider endpoint be overridden", () => {
+    // A hardcoded endpoint is a dead end for anyone the default does not suit.
+    // LlamaCloud is the sharp case: it runs a separate EU region and its keys
+    // are region specific, so a European key cannot work without this.
+    for (const key of ["OPENAI_BASE_URL", "DEEPSEEK_BASE_URL", "LLAMA_CLOUD_BASE_URL"]) {
+      expect(selfHost.has(key), `.env.example is missing ${key}`).toBe(true);
+    }
+  });
+
+  it("leave no vendor endpoint hardcoded without an override", () => {
+    // Finds a literal https:// endpoint in provider code and requires that the
+    // same file reads a *_BASE_URL override, so a new provider cannot be added
+    // with an unconfigurable host.
+    const files = ["chat.ts", "embeddings.ts", "llamaparse.ts"];
+    for (const file of files) {
+      const source = read(`apps/api/src/lib/providers/${file}`);
+      const hasLiteralEndpoint = /"https:\/\/[^"]+"/.test(source);
+      if (!hasLiteralEndpoint) continue;
+      expect(
+        /BASE_URL|baseUrl\(/.test(source),
+        `${file} hardcodes an endpoint with no way to override it`,
+      ).toBe(true);
+    }
   });
 
   it("name no permission the project does not use", () => {

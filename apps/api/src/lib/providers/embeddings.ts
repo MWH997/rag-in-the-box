@@ -1,6 +1,6 @@
 import { embeddingFitsIndex, findEmbeddingModel, type EmbeddingProvider } from "@rag/shared";
 
-import { indexDimensions, ollamaBaseUrl, servedOffline, type Env } from "../../env.js";
+import { baseUrl, indexDimensions, ollamaBaseUrl, servedOffline, type Env } from "../../env.js";
 import { offlineEmbed } from "./offline.js";
 import { ProviderError, type EmbeddingResult } from "./types.js";
 
@@ -93,7 +93,8 @@ async function embedOpenAi(env: Env, model: string, inputs: string[]): Promise<E
   const expected = indexDimensions(env);
   checkModelFitsIndex("openai", model, expected);
 
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
+  const endpoint = `${baseUrl(env.OPENAI_BASE_URL, "https://api.openai.com/v1")}/embeddings`;
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       authorization: `Bearer ${apiKey}`,
