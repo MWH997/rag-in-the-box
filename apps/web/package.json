@@ -18,7 +18,7 @@
     "@fontsource-variable/geist-mono": "^5.2.9",
     "@rag/shared": "*",
     "@tailwindcss/vite": "^4.3.2",
-    "better-auth": "^1.6.23",
+    "better-auth": "^1.7.2",
     "clsx": "^2.1.1",
     "framer-motion": "^13.1.1",
     "lucide-react": "^1.23.0",

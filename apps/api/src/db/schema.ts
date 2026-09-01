@@ -10,7 +10,9 @@ import { blob, index, integer, primaryKey, real, sqliteTable, text } from "drizz
 
 // BetterAuth's tables (user/session/account/verification/organization/member/
 // invitation) live in ./auth-schema.ts, regenerated with
-// `npx @better-auth/cli generate --config auth.config.ts --output src/db/auth-schema.ts`.
+// `npx auth@latest generate --config auth.config.ts --output src/db/auth-schema.ts`.
+// Not `@better-auth/cli`, which is deprecated and resolves to 1.4, producing a
+// schema the current library rejects at runtime while typechecking cleanly.
 // Re-exported here so this file stays the single schema entry point.
 export * from "./auth-schema.js";
 
