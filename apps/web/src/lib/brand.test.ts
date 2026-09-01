@@ -36,7 +36,7 @@ describe("branding", () => {
     const offenders: string[] = [];
     for (const path of files) {
       const source = readFileSync(path, "utf8");
-      if (/mwhassan|MWH997|Muhammad Hassan/.test(source)) {
+      if (/mwhassan|MWH997|Md Wahid Hassan/.test(source)) {
         offenders.push(path.slice(webSrc.length + 1));
       }
     }

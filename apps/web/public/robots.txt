@@ -1,0 +1,9 @@
+# The marketing pages and the docs are meant to be found. The workspace behind
+# sign-in is not: it holds nobody's content that a search engine should index,
+# and every one of those pages needs a session to render anything at all.
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /reset-password
+
+Sitemap: https://rib.mwhassan.com/sitemap.xml

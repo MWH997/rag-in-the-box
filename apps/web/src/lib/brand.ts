@@ -36,7 +36,7 @@ export const brand = {
 
   /** Who built it, shown in the footer. */
   author: {
-    name: text(import.meta.env.VITE_AUTHOR_NAME, "Muhammad Hassan"),
+    name: text(import.meta.env.VITE_AUTHOR_NAME, "Md Wahid Hassan"),
     url: text(import.meta.env.VITE_AUTHOR_URL, "https://mwhassan.com"),
   },
 

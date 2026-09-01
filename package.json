@@ -5,6 +5,15 @@
   "type": "module",
   "description": "Multi-tenant retrieval-augmented generation platform that runs on the Cloudflare free tier.",
   "license": "MIT",
+  "author": "Md Wahid Hassan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MWH997/rag-in-the-box.git"
+  },
+  "homepage": "https://rib.mwhassan.com",
+  "bugs": {
+    "url": "https://github.com/MWH997/rag-in-the-box/issues"
+  },
   "engines": {
     "node": ">=24.0.0",
     "npm": ">=11.0.0"
