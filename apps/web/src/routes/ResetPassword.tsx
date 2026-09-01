@@ -85,8 +85,8 @@ export function ResetPassword() {
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm font-medium text-ink">This link is incomplete</p>
                     <p className="text-sm leading-relaxed text-muted">
-                      Open the invitation link exactly as it was sent to you. It carries a
-                      one-time code that this page needs.
+                      Open the invitation link exactly as it was sent to you. It carries a one-time
+                      code that this page needs.
                     </p>
                   </div>
                 </div>
