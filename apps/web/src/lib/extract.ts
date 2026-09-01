@@ -50,7 +50,10 @@ async function extractPdf(
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
   const data = new Uint8Array(await file.arrayBuffer());
-  const document = await pdfjs.getDocument({ data }).promise;
+  // pdf.js 6 moved teardown onto the loading task, so the task is kept rather
+  // than discarded. Destroying it is what terminates the worker thread.
+  const loadingTask = pdfjs.getDocument({ data });
+  const document = await loadingTask.promise;
 
   const parts: string[] = [];
   const pageBreaks: number[] = [];
@@ -86,8 +89,9 @@ async function extractPdf(
     if (pageNumber % 5 === 0) await yieldToBrowser();
   }
 
-  await document.destroy();
-  return { markdown: parts.join(""), pageBreaks, pageCount: document.numPages };
+  const pageCount = document.numPages;
+  await loadingTask.destroy();
+  return { markdown: parts.join(""), pageBreaks, pageCount };
 }
 
 async function extractDocx(file: File): Promise<Extracted> {

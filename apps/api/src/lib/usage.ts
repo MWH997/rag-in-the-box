@@ -13,6 +13,16 @@ export const METRICS = {
   chatCompletionTokens: "chat_completion_tokens",
   neurons: "neurons",
   externalCostUsd: "external_cost_usd",
+  /**
+   * Rows D1 reported reading and writing, as measured by lib/d1-meter.ts.
+   *
+   * Cloudflare enforces the free plan's daily allowance from 1 September 2026,
+   * so these are the two numbers that decide whether a deployment keeps working
+   * until midnight UTC. They undercount by the handful of rows the recording
+   * upsert itself writes, which is a fixed cost of at most a few rows.
+   */
+  d1RowsRead: "d1_rows_read",
+  d1RowsWritten: "d1_rows_written",
 } as const;
 
 export type Metric = (typeof METRICS)[keyof typeof METRICS];
@@ -47,6 +57,21 @@ export async function recordUsage(
         set: { value: sql`${usageDaily.value} + excluded.value` },
       });
   }
+}
+
+/**
+ * Turns a meter reading into deltas, for folding into an existing usage write.
+ *
+ * Only the expensive operations record this: ingestion and chat. Metering every
+ * cheap read as well would cost a row write per request to measure a handful of
+ * row reads, which would consume more allowance than it accounts for. The
+ * consequence is that the reported figure is a floor, not a total.
+ */
+export function d1Deltas(usage: { rowsRead: number; rowsWritten: number }): MetricDelta[] {
+  return [
+    { metric: METRICS.d1RowsRead, value: usage.rowsRead },
+    { metric: METRICS.d1RowsWritten, value: usage.rowsWritten },
+  ];
 }
 
 export type UsageMap = Record<string, number>;

@@ -18,7 +18,7 @@ import { embed, getJobMarkdown, getJobStatus, submitParseJob } from "../lib/prov
 import { consumeQuota } from "../lib/quota.js";
 import { loadSettings } from "../lib/settings.js";
 import { triage } from "../lib/triage.js";
-import { METRICS, recordUsage } from "../lib/usage.js";
+import { METRICS, d1Deltas, recordUsage } from "../lib/usage.js";
 import { upsertChunks } from "../lib/vectors.js";
 import { quotaChecksFor, type AppEnv } from "../middleware/tenant.js";
 
@@ -283,6 +283,7 @@ async function ingestMarkdown(
       value: embeddingModel ? neuronsForEmbedding(embeddingModel, embeddingTokens) : 0,
     },
     { metric: METRICS.documentsIngested, value: 1 },
+    ...d1Deltas(c.get("d1Usage")()),
   ]);
 
   return { chunks: produced.length, segments: segments.length };

@@ -17,7 +17,7 @@ import { buildContextBlock, buildUserTurn, trimHistory } from "../lib/prompt.js"
 import { embed, streamChat, type ChatTurn } from "../lib/providers/index.js";
 import { consumeQuota, refundQuota } from "../lib/quota.js";
 import { loadSettings } from "../lib/settings.js";
-import { METRICS, recordUsage } from "../lib/usage.js";
+import { METRICS, d1Deltas, recordUsage } from "../lib/usage.js";
 import { queryChunks } from "../lib/vectors.js";
 import { quotaChecksFor, type AppEnv } from "../middleware/tenant.js";
 
@@ -211,6 +211,7 @@ chatRoute.post("/chat", async (c) => {
               ? usdForChat(model, usage.promptTokens, usage.completionTokens)
               : 0,
         },
+        ...d1Deltas(c.get("d1Usage")()),
       ]);
     } catch (cause) {
       // The allowance is returned when the failure was ours, not the caller's.

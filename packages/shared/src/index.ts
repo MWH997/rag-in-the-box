@@ -1,5 +1,6 @@
 export * from "./chunker.js";
 export * from "./markdown.js";
+export * from "./platform.js";
 export * from "./providers.js";
 export * from "./schemas.js";
 export * from "./tiers.js";

@@ -18,7 +18,7 @@ import { HttpError } from "../lib/errors.js";
 import { embed } from "../lib/providers/index.js";
 import { consumeQuota } from "../lib/quota.js";
 import { loadSettings } from "../lib/settings.js";
-import { METRICS, recordUsage } from "../lib/usage.js";
+import { METRICS, d1Deltas, recordUsage } from "../lib/usage.js";
 import { deleteChunks, upsertChunks } from "../lib/vectors.js";
 
 export const documentsRoute = new Hono<AppEnv>();
@@ -266,6 +266,7 @@ documentsRoute.post("/documents/:id/ingest", async (c) => {
       value: embeddingModel ? neuronsForEmbedding(embeddingModel, embeddingTokens) : 0,
     },
     { metric: METRICS.documentsIngested, value: body.done ? 1 : 0 },
+    ...d1Deltas(c.get("d1Usage")()),
   ]);
 
   return c.json({

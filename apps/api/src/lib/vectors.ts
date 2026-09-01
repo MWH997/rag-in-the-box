@@ -1,3 +1,4 @@
+import { FREE_D1_ROWS_READ_PER_DAY } from "@rag/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { indexDimensions, vectorBackend, type Env } from "../env.js";
@@ -41,10 +42,28 @@ export interface Match {
  *
  * A scan of 4,000 vectors at 384 dimensions is about 1.5 million multiply-adds,
  * which measures in single-digit milliseconds. Going much past this would put
- * the free plan's 10 ms CPU budget at risk, so the scan stops here and the
- * documentation says to move to Vectorize beyond it.
+ * the free plan's 10 ms CPU budget at risk, so the scan stops here.
+ *
+ * Processor time is no longer the binding constraint, though. Since
+ * 1 September 2026 Cloudflare enforces a daily allowance of 5,000,000 D1 rows
+ * read, and a brute-force scan reads one row per stored vector. A full 4,000
+ * row scan therefore buys 1,250 questions a day and nothing else, because every
+ * other query in the request also draws on the same allowance. Vectorize reads
+ * no D1 rows to search at all. That is the reason it is the default anywhere it
+ * can run, and this backend exists for local development, where Cloudflare
+ * provides no Vectorize emulation.
  */
 export const D1_SCAN_LIMIT = 4_000;
+
+/**
+ * Questions a day this deployment's vector search can answer before D1's row
+ * read allowance is gone, ignoring every other query. Null under Vectorize,
+ * which does not search by reading rows.
+ */
+export function vectorSearchQuestionsPerDay(env: Env): number | null {
+  if (vectorBackend(env) !== "d1") return null;
+  return Math.floor(FREE_D1_ROWS_READ_PER_DAY / D1_SCAN_LIMIT);
+}
 
 /** Reads the Vectorize binding, failing loudly when the backend is misconfigured. */
 function requireVectorize(env: Env): VectorizeIndex {

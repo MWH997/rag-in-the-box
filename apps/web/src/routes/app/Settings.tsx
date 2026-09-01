@@ -137,6 +137,10 @@ export function Settings() {
                   term: "Scanned documents",
                   value: settings.limits.ocrFallback ? "Yes" : "No",
                 },
+                {
+                  term: "Vector store",
+                  value: settings.vectorBackend === "vectorize" ? "Vectorize" : "D1",
+                },
               ].map((item) => (
                 <div key={item.term} className="flex min-w-0 items-baseline justify-between gap-3">
                   <dt className="truncate text-[0.8125rem] text-muted">{item.term}</dt>
@@ -144,6 +148,16 @@ export function Settings() {
                 </div>
               ))}
             </dl>
+            {settings.vectorSearchQuestionsPerDay !== null && (
+              <p className="mt-4 text-[0.75rem] leading-relaxed text-faint">
+                This deployment searches by scanning vectors in D1, which Cloudflare has metered
+                since 1 September 2026. That caps it at about{" "}
+                {settings.vectorSearchQuestionsPerDay.toLocaleString()} questions a day before the
+                daily row allowance runs out. Vectorize searches without reading rows and has no
+                such ceiling. It is the default for anything deployed; this store exists so the
+                project runs locally, where Cloudflare provides no Vectorize emulation.
+              </p>
+            )}
           </CardBody>
         </Card>
 

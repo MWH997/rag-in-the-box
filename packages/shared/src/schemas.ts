@@ -237,6 +237,20 @@ export const TenantSettings = z.object({
   reindexRequired: z.boolean(),
   /** Dimension the Vectorize index was created with. */
   indexDimensions: z.number().int().positive(),
+  /**
+   * Where vectors actually live for this deployment.
+   *
+   * Vectorize is the default everywhere it can run. The D1 store exists because
+   * Vectorize has no local emulation, so it is what makes the project work
+   * with no Cloudflare account. Reporting it means an operator can tell the two
+   * apart without reading configuration files.
+   */
+  vectorBackend: z.enum(["vectorize", "d1"]),
+  /**
+   * How many questions a day the vector store can answer before D1's row read
+   * allowance runs out. Null when the store does not read rows to search.
+   */
+  vectorSearchQuestionsPerDay: z.number().int().positive().nullable(),
   limits: z.object({
     maxUploadBytes: z.number().int(),
     maxDocuments: z.number().int(),
@@ -277,6 +291,14 @@ export const UsageDay = z.object({
   chatTokens: z.number().int().nonnegative(),
   neurons: z.number().nonnegative(),
   externalCostUsd: z.number().nonnegative(),
+  /**
+   * Rows D1 reported for the metered operations of the day.
+   *
+   * A floor rather than a total: cheap reads are not metered, because the row
+   * write needed to record them would cost more allowance than it measures.
+   */
+  d1RowsRead: z.number().int().nonnegative(),
+  d1RowsWritten: z.number().int().nonnegative(),
 });
 export type UsageDay = z.infer<typeof UsageDay>;
 
@@ -287,6 +309,7 @@ export const UsageResponse = z.object({
     chatMessagesPerDay: z.number().int(),
     documentsPerDay: z.number().int(),
     neuronsPerDay: z.number().int(),
+    d1RowsReadPerDay: z.number().int(),
     d1RowsWrittenPerDay: z.number().int(),
     vectorDimensionsStored: z.number().int(),
     vectorDimensionsStoredLimit: z.number().int(),

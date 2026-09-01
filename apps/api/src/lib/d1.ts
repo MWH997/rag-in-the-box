@@ -1,3 +1,5 @@
+import { D1_MAX_BOUND_PARAMETERS } from "@rag/shared";
+
 import { getTableColumns } from "drizzle-orm";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 
@@ -16,7 +18,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
  * See https://developers.cloudflare.com/d1/platform/limits/
  */
 
-export const MAX_BOUND_PARAMETERS = 100;
+export const MAX_BOUND_PARAMETERS = D1_MAX_BOUND_PARAMETERS;
 
 /** Rows that fit in one statement, given how many columns each row binds. */
 export function rowsPerStatement(columnsPerRow: number): number {

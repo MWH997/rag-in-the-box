@@ -6,8 +6,10 @@ import { ZodError } from "zod";
 
 import { appMode, type Env } from "./env.js";
 import { HttpError } from "./lib/errors.js";
+import { isDailyLimitError } from "./lib/d1-meter.js";
 import { ProviderError } from "./lib/providers/index.js";
 import { createAuth } from "./lib/auth.js";
+import { nextUtcMidnight } from "./lib/time.js";
 import { withTenant, type AppEnv } from "./middleware/tenant.js";
 import { adminRoute } from "./routes/admin.js";
 import { chatRoute } from "./routes/chat.js";
@@ -56,7 +58,7 @@ app.get("/health", (c) =>
 // Auth is only mounted when the deployment expects sign-in. The public demo has
 // no accounts, so leaving the routes reachable there would be surface with no
 // purpose.
-app.on(["GET", "POST"], "/api/auth/*", (c) => {
+app.on(["GET", "POST"], ["/api/auth/*"], async (c) => {
   if (appMode(c.env) === "demo") {
     return c.json({ error: "Accounts are disabled on the demo.", code: "demo_no_auth" }, 404);
   }
@@ -95,6 +97,24 @@ app.onError((error, c) => {
   if (error instanceof ProviderError) {
     return c.json({ error: error.message, code: error.code }, error.status as ContentfulStatusCode);
   }
+  // From 1 September 2026 D1 rejects every query once the account passes its
+  // daily free allowance. That is not a bug in the request, so it gets its own
+  // answer rather than a generic failure the reader cannot act on.
+  const limit = isDailyLimitError(error);
+  if (limit) {
+    return c.json(
+      {
+        error:
+          limit === "read"
+            ? "This deployment has read its daily free database allowance. It resets at midnight UTC."
+            : "This deployment has written its daily free database allowance. It resets at midnight UTC.",
+        code: "d1_daily_limit",
+        details: { kind: limit, resetsAt: nextUtcMidnight() },
+      },
+      503,
+    );
+  }
+
   console.error("unhandled error", error);
   return c.json({ error: "Something went wrong.", code: "internal_error" }, 500);
 });

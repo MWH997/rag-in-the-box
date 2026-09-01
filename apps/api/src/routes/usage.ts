@@ -1,4 +1,11 @@
-import { FREE_NEURONS_PER_DAY, TIER_LIMITS, type UsageDay } from "@rag/shared";
+import {
+  FREE_D1_ROWS_READ_PER_DAY,
+  FREE_D1_ROWS_WRITTEN_PER_DAY,
+  FREE_NEURONS_PER_DAY,
+  FREE_VECTOR_DIMENSIONS_STORED,
+  TIER_LIMITS,
+  type UsageDay,
+} from "@rag/shared";
 import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
 
@@ -10,11 +17,6 @@ import { METRICS, readUsage } from "../lib/usage.js";
 import type { AppEnv } from "../middleware/tenant.js";
 
 export const usageRoute = new Hono<AppEnv>();
-
-/** Cloudflare's free Vectorize allowance, in stored vector dimensions. */
-const FREE_STORED_VECTOR_DIMENSIONS = 5_000_000;
-/** Cloudflare's free D1 allowance for rows written per day. */
-const FREE_D1_ROWS_WRITTEN_PER_DAY = 100_000;
 
 usageRoute.get("/usage", async (c) => {
   const db = c.get("db");
@@ -37,6 +39,8 @@ usageRoute.get("/usage", async (c) => {
       ),
       neurons: Number((values[METRICS.neurons] ?? 0).toFixed(2)),
       externalCostUsd: Number((values[METRICS.externalCostUsd] ?? 0).toFixed(4)),
+      d1RowsRead: Math.round(values[METRICS.d1RowsRead] ?? 0),
+      d1RowsWritten: Math.round(values[METRICS.d1RowsWritten] ?? 0),
     };
   };
 
@@ -52,9 +56,10 @@ usageRoute.get("/usage", async (c) => {
       chatMessagesPerDay: limits.chatMessagesPerDay,
       documentsPerDay: limits.documentsPerDay,
       neuronsPerDay: FREE_NEURONS_PER_DAY,
+      d1RowsReadPerDay: FREE_D1_ROWS_READ_PER_DAY,
       d1RowsWrittenPerDay: FREE_D1_ROWS_WRITTEN_PER_DAY,
       vectorDimensionsStored: (stored?.chunks ?? 0) * indexDimensions(c.env),
-      vectorDimensionsStoredLimit: FREE_STORED_VECTOR_DIMENSIONS,
+      vectorDimensionsStoredLimit: FREE_VECTOR_DIMENSIONS_STORED,
     },
   });
 });

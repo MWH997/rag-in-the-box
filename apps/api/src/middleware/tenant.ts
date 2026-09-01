@@ -2,6 +2,7 @@ import { createMiddleware } from "hono/factory";
 import { getCookie, setCookie } from "hono/cookie";
 
 import { createDb, type Database } from "../db/index.js";
+import { createMeter, type D1Usage } from "../lib/d1-meter.js";
 import { envBool, envInt, isDemo, type Env } from "../env.js";
 import { createAuth } from "../lib/auth.js";
 import { HttpError } from "../lib/errors.js";
@@ -29,6 +30,8 @@ export interface TenantContext {
 export type AppVariables = {
   db: Database;
   tenant: TenantContext;
+  /** Rows this request has actually made D1 read and write, so far. */
+  d1Usage: () => D1Usage;
 };
 
 export type AppEnv = { Bindings: Env; Variables: AppVariables };
@@ -88,8 +91,12 @@ export function demoLimits(env: Env) {
  * Either way the tenant id comes from the server, never from the request body.
  */
 export const withTenant = createMiddleware<AppEnv>(async (c, next) => {
-  const db = createDb(c.env.DB);
+  // Every query goes through the meter so the deployment can report its own
+  // consumption against the daily allowance D1 now enforces.
+  const meter = createMeter(c.env.DB);
+  const db = createDb(meter.binding);
   c.set("db", db);
+  c.set("d1Usage", meter.usage);
 
   // Operator escape hatch used by scripts/seed-demo.ts to write the curated
   // demo workspace. It needs the deployment's admin token, which is a secret

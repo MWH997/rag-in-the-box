@@ -134,6 +134,20 @@ export function Usage() {
                   unit="stored"
                   note="Vectorize bills on stored dimensions. Five million is the free ceiling, which is about 13,000 passages at 384 dimensions."
                 />
+                <BudgetRow
+                  label="Database rows read"
+                  used={data.today.d1RowsRead}
+                  limit={data.budget.d1RowsReadPerDay}
+                  unit="today"
+                  note="Measured, not estimated. Since 1 September 2026 Cloudflare fails every D1 query once this is crossed, until midnight UTC."
+                />
+                <BudgetRow
+                  label="Database rows written"
+                  used={data.today.d1RowsWritten}
+                  limit={data.budget.d1RowsWrittenPerDay}
+                  unit="today"
+                  note="Counted for questions and ingestion only, so treat it as a floor. Ingesting a document is what moves this number."
+                />
               </CardBody>
             </Card>
 

@@ -17,7 +17,8 @@ import {
 } from "@rag/shared";
 import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 
-import { capabilities, indexDimensions, type Env } from "../env.js";
+import { capabilities, indexDimensions, vectorBackend, type Env } from "../env.js";
+import { vectorSearchQuestionsPerDay } from "./vectors.js";
 import type { Database } from "../db/index.js";
 import { documents, tenantSettings } from "../db/schema.js";
 import { HttpError } from "./errors.js";
@@ -226,6 +227,8 @@ export async function toApiSettings(
     available: capabilities(env),
     reindexRequired: await reindexRequired(db, tenantId, resolved.embeddingModel),
     indexDimensions: indexDimensions(env),
+    vectorBackend: vectorBackend(env),
+    vectorSearchQuestionsPerDay: vectorSearchQuestionsPerDay(env),
     limits: {
       maxUploadBytes: limits.maxUploadBytes,
       maxDocuments: limits.maxDocuments,
