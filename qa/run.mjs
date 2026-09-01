@@ -144,12 +144,17 @@ run("npx", ["vite", "preview", "--port", String(WEB_PORT), "--strictPort"], {
 });
 await waitFor(WEB_URL, "the interface");
 
-/* 1. The API against its own schemas ---------------------------------------- */
+/* 1. Nothing secret in the bundle -------------------------------------------- */
+
+console.log("qa: scanning the build for secrets");
+await once("node", [join(here, "secret-scan.mjs"), "--dist", join(root, "apps", "web", "dist")]);
+
+/* 2. The API against its own schemas ---------------------------------------- */
 
 console.log("qa: checking the API contract");
 await once("node", [join(here, "contract.mjs")], { env: { BASE_URL: API_URL } });
 
-/* 2. The interface, in a browser --------------------------------------------- */
+/* 3. The interface, in a browser --------------------------------------------- */
 
 const layoutSource = readFileSync(join(here, "audit.js"), "utf8");
 const a11ySource = readFileSync(join(here, "a11y.js"), "utf8");

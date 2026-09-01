@@ -266,7 +266,15 @@ WEB_ORIGIN="${WEB_ORIGIN:-https://${PAGES_PROJECT}.pages.dev}"
   echo "[vars]"
   echo "APP_MODE = \"$([ "$PROFILE" = demo ] && echo demo || echo self-host)\""
   echo "APP_VERSION = \"$(node -p "require('$ROOT/package.json').version")\""
-  echo "ALLOWED_ORIGIN = \"$WEB_ORIGIN\""
+  # A Pages project always keeps its pages.dev address, and a custom domain on
+  # a zone held by a different Cloudflare account cannot be attached from here.
+  # Both origins therefore have to be allowed, or the interface is refused by
+  # CORS at whichever address someone actually opens.
+  if [ -n "${ALLOWED_ORIGIN_EXTRA:-}" ]; then
+    echo "ALLOWED_ORIGIN = \"$WEB_ORIGIN,$ALLOWED_ORIGIN_EXTRA\""
+  else
+    echo "ALLOWED_ORIGIN = \"$WEB_ORIGIN\""
+  fi
   echo "BETTER_AUTH_URL = \"$API_ORIGIN\""
   echo 'VECTOR_BACKEND = "vectorize"'
   echo "VECTOR_DIMENSIONS = \"$VECTOR_DIMENSIONS\""
