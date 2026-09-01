@@ -135,8 +135,9 @@ ADMIN_TOKEN='...' node apps/api/scripts/provision-tenant.ts \
   them@example.com "Their organisation" https://api.example.com
 ```
 
-It prints a one-time link they use to set their own password. No password is
-ever transmitted or known by you.
+It prints a one-time link. Sending it to them is the whole handover: the link
+opens a page on your own deployment where they choose a password, and it is
+never transmitted to you or known by you. The link works once.
 
 ## Optional providers
 

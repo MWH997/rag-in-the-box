@@ -1,5 +1,5 @@
 import { AlertCircle, Loader2 } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -24,12 +24,16 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (!isPending && session) {
-    void navigate("/app", { replace: true });
-  }
-  if (!modeLoading && mode === "demo") {
-    void navigate("/demo", { replace: true });
-  }
+  // Redirects belong in an effect. Calling navigate during render updates the
+  // router while this component is still rendering, which React warns about
+  // and which can drop the navigation entirely.
+  useEffect(() => {
+    if (!isPending && session) void navigate("/app", { replace: true });
+  }, [isPending, session, navigate]);
+
+  useEffect(() => {
+    if (!modeLoading && mode === "demo") void navigate("/demo", { replace: true });
+  }, [mode, modeLoading, navigate]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();

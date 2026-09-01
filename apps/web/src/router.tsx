@@ -12,6 +12,9 @@ import { Landing } from "./routes/Landing";
  */
 const Demo = lazy(() => import("./routes/Demo").then((module) => ({ default: module.Demo })));
 const Login = lazy(() => import("./routes/Login").then((module) => ({ default: module.Login })));
+const ResetPassword = lazy(() =>
+  import("./routes/ResetPassword").then((module) => ({ default: module.ResetPassword })),
+);
 const NotFound = lazy(() =>
   import("./routes/NotFound").then((module) => ({ default: module.NotFound })),
 );
@@ -45,6 +48,7 @@ export const router = createBrowserRouter([
   { path: "/", element: <Landing /> },
   { path: "/demo", element: suspend(<Demo />) },
   { path: "/login", element: suspend(<Login />) },
+  { path: "/reset-password", element: suspend(<ResetPassword />) },
   {
     path: "/app",
     element: suspend(<AppShell />),

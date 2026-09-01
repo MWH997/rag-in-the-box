@@ -69,7 +69,14 @@ adminRoute.post("/admin/provision", async (c) => {
       .where(eq(organization.id, membership.organizationId));
   }
 
-  await auth.api.requestPasswordReset({ body: { email: parsed.data.email } });
+  // The link lands on the interface, not on the API, because that is where the
+  // form for choosing a password lives.
+  await auth.api.requestPasswordReset({
+    body: {
+      email: parsed.data.email,
+      redirectTo: `${c.env.ALLOWED_ORIGIN.split(",")[0]?.trim() ?? ""}/reset-password`,
+    },
+  });
 
   if (!resetLink) {
     return c.json({ error: "Could not generate invite link", code: "internal_error" }, 500);

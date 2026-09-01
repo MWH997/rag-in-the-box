@@ -1,14 +1,15 @@
 /**
- * Onboarding runbook script (see README.md "Tenant onboarding"). Creates a
- * new tenant (user + organization) and prints a one-time password-reset
- * link for the operator to hand to the client.
+ * Creates a workspace for someone else.
  *
- * Usage:
- *   ADMIN_TOKEN=<token> node scripts/provision-tenant.ts <email> <orgName> [baseUrl]
+ * There is no self-serve sign-up form for other people on purpose. This makes
+ * the account and prints a one-time link they use to set their own password,
+ * so no password is ever transmitted or known by the operator.
  *
- * Requires a running API (e.g. `npm run dev` in apps/api for local use, or
- * the deployed Worker URL in production) and the same ADMIN_TOKEN value
- * configured there (`.dev.vars` locally, `wrangler secret put` in prod).
+ *   ADMIN_TOKEN=<token> node apps/api/scripts/provision-tenant.ts \
+ *     <email> <organisation name> [api origin]
+ *
+ * Needs a running API and the same ADMIN_TOKEN configured there. See
+ * docs/hosting.md for where that value lives in each environment.
  */
 
 const [, , email, orgName, baseUrlArg] = process.argv;
