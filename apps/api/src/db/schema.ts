@@ -1,4 +1,10 @@
-import { CHAT_PROVIDERS, EMBEDDING_PROVIDERS, TIERS } from "@rag/shared";
+import {
+  CHAT_PROVIDERS,
+  DEFAULT_CHAT_MODEL,
+  DEFAULT_EMBEDDING_MODEL,
+  EMBEDDING_PROVIDERS,
+  TIERS,
+} from "@rag/shared";
 import { blob, index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // BetterAuth's tables (user/session/account/verification/organization/member/
@@ -147,9 +153,14 @@ export const tenantSettings = sqliteTable("tenant_settings", {
   embeddingProvider: text("embedding_provider", { enum: EMBEDDING_PROVIDERS })
     .notNull()
     .default("workers-ai"),
-  embeddingModel: text("embedding_model").notNull().default("@cf/baai/bge-small-en-v1.5"),
+  embeddingModel: text("embedding_model").notNull().default(DEFAULT_EMBEDDING_MODEL),
   chatProvider: text("chat_provider", { enum: CHAT_PROVIDERS }).notNull().default("workers-ai"),
-  chatModel: text("chat_model").notNull().default("@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
+  // Taken from the shared registry rather than written out, because these had
+  // drifted: the column named a different chat model than the application
+  // default. Nothing reads them, since every insert supplies both columns, so
+  // the drift was invisible and would have surfaced only for someone inserting
+  // a row by hand or reading the schema to learn the default.
+  chatModel: text("chat_model").notNull().default(DEFAULT_CHAT_MODEL),
   systemPrompt: text("system_prompt").notNull().default(""),
   updatedAt: integer("updated_at")
     .notNull()
