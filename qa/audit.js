@@ -139,13 +139,21 @@ window.__ragAudit = function audit(options = {}) {
     // 3. Content wider than its own box, in a box that cannot scroll.
     // Truncation with an ellipsis is a design decision, so only a hard clip
     // with no ellipsis and no scroll is reported.
+    //
+    // `overflow: visible` is excluded because nothing is lost: the content
+    // spills outside the box and is painted in full. An icon a couple of pixels
+    // wider than its wrapper reads as an overflow by measurement and as nothing
+    // at all to a person, and rules 1 and 2 already catch a spill that reaches
+    // the edge of the viewport.
     const contentOverflow = element.scrollWidth - element.clientWidth;
     const truncatesDeliberately = style.textOverflow === "ellipsis";
+    const spillsWithoutClipping = style.overflowX === "visible";
     if (
       contentOverflow > tolerance &&
       !isScrollable(style) &&
       !scrollerAncestor &&
       !truncatesDeliberately &&
+      !spillsWithoutClipping &&
       element.clientWidth > 0
     ) {
       const hardClip = style.overflowX === "hidden";
