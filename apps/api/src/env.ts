@@ -110,6 +110,21 @@ export function baseUrl(override: string | undefined, fallback: string): string 
   return raw.replace(/\/+$/, "");
 }
 
+/**
+ * Origins allowed to call this API.
+ *
+ * ALLOWED_ORIGIN is documented as a comma separated list so one deployment can
+ * serve a marketing site and an app subdomain without a wildcard. The CORS
+ * layer split it; better-auth was handed the raw string as a single origin, so
+ * a deployment with two origins passed the preflight and then failed every
+ * sign-in with "Invalid origin". Both now ask this function.
+ */
+export function allowedOrigins(env: Env): string[] {
+  return env.ALLOWED_ORIGIN.split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
+
 export function appMode(env: Env): "self-host" | "demo" {
   return env.APP_MODE === "demo" ? "demo" : "self-host";
 }

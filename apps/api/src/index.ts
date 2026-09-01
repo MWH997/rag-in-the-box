@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
 
-import { appMode, type Env } from "./env.js";
+import { allowedOrigins, appMode, type Env } from "./env.js";
 import { HttpError } from "./lib/errors.js";
 import { isDailyLimitError } from "./lib/d1-meter.js";
 import { ProviderError } from "./lib/providers/index.js";
@@ -23,19 +23,6 @@ import { uploadRoute } from "./routes/upload.js";
 import { usageRoute } from "./routes/usage.js";
 
 const app = new Hono<AppEnv>();
-
-/**
- * Origins allowed to call this API.
- *
- * ALLOWED_ORIGIN accepts a comma-separated list so one deployment can serve a
- * marketing site and an app subdomain without a wildcard. Credentials are on,
- * which rules out a wildcard anyway: a browser refuses to send cookies to one.
- */
-function allowedOrigins(env: Env): string[] {
-  return env.ALLOWED_ORIGIN.split(",")
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
-}
 
 app.use("*", (c, next) =>
   cors({

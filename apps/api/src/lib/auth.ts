@@ -5,7 +5,7 @@ import { organization } from "better-auth/plugins/organization";
 
 import { createDb } from "../db/index.js";
 import * as authSchema from "../db/auth-schema.js";
-import { envInt, type Env } from "../env.js";
+import { allowedOrigins, envInt, type Env } from "../env.js";
 import { FREE_TIER_ITERATIONS, hashPassword, verifyPassword } from "./password.js";
 
 export interface AuthHooks {
@@ -33,7 +33,7 @@ export function createAuth(env: Env, hooks: AuthHooks = {}) {
   return betterAuth({
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
-    trustedOrigins: [env.ALLOWED_ORIGIN],
+    trustedOrigins: allowedOrigins(env),
     database: drizzleAdapter(db, { provider: "sqlite", schema: authSchema }),
     emailAndPassword: {
       enabled: true,
