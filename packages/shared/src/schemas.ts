@@ -225,6 +225,12 @@ export const TenantSettings = z.object({
   chatProvider: z.enum(CHAT_PROVIDERS),
   chatModel: z.string().min(1),
   systemPrompt: z.string().max(4_000),
+  /** Characters of retrieved context sent with a question. */
+  contextCharBudget: z.number().int().min(1_000).max(32_000),
+  /** Tokens the model may spend on the answer. */
+  maxAnswerTokens: z.number().int().min(128).max(4_000),
+  /** Sampling temperature. Low keeps answers close to the retrieved wording. */
+  temperature: z.number().min(0).max(1),
   /** Read-only view of which optional keys the deployment actually has. */
   available: z.object({
     workersAi: z.boolean(),
@@ -274,6 +280,9 @@ export const UpdateSettingsRequest = z
     chatProvider: z.enum(CHAT_PROVIDERS).optional(),
     chatModel: z.string().min(1).max(120).optional(),
     systemPrompt: z.string().max(4_000).optional(),
+    contextCharBudget: z.number().int().min(1_000).max(32_000).optional(),
+    maxAnswerTokens: z.number().int().min(128).max(4_000).optional(),
+    temperature: z.number().min(0).max(1).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "Provide at least one field to update",

@@ -15,6 +15,20 @@
       "when": 1788268103266,
       "tag": "0001_youthful_stark_industries",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788273026826,
+      "tag": "0002_groovy_beyonder",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788273325768,
+      "tag": "0003_fuzzy_harry_osborn",
+      "breakpoints": true
     }
   ]
 }

@@ -23,10 +23,14 @@ import { quotaChecksFor, type AppEnv } from "../middleware/tenant.js";
 
 export const chatRoute = new Hono<AppEnv>();
 
-/** Characters of retrieved context allowed into a single prompt. */
-const CONTEXT_CHAR_BUDGET = 9_000;
-/** Answer length cap. Output tokens dominate the neuron cost of a reply. */
-const MAX_ANSWER_TOKENS = 700;
+/**
+ * Turns of conversation carried into the next prompt.
+ *
+ * Fixed on purpose, unlike the context budget, answer length and temperature,
+ * which are per workspace. This one trades against the same prompt budget the
+ * retrieved passages need, so two settings competing for one budget would let a
+ * workspace starve its own retrieval without seeing why the answers got worse.
+ */
 const HISTORY_TURNS = 6;
 
 chatRoute.post("/chat", async (c) => {
@@ -131,7 +135,7 @@ chatRoute.post("/chat", async (c) => {
           citation: { ...passage.citation, index: index + 1 },
         }));
 
-      const { block, used } = buildContextBlock(passages, CONTEXT_CHAR_BUDGET);
+      const { block, used } = buildContextBlock(passages, settings.contextCharBudget);
       const retrievalMs = Date.now() - retrievalStarted;
       await send({ type: "citations", citations: used });
       await send({ type: "status", stage: "generating" });
@@ -146,8 +150,8 @@ chatRoute.post("/chat", async (c) => {
       const result = streamChat(c.env, settings.chatProvider, {
         model: settings.chatModel,
         messages: turns,
-        maxTokens: MAX_ANSWER_TOKENS,
-        temperature: 0.1,
+        maxTokens: settings.maxAnswerTokens,
+        temperature: settings.temperature,
       });
 
       let answer = "";

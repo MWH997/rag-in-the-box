@@ -1,4 +1,5 @@
 import {
+  ANSWER_TUNING,
   CHAT_MODELS,
   DEFAULT_CHAT_MODEL,
   DEFAULT_CHAT_PROVIDER,
@@ -37,6 +38,24 @@ export interface ResolvedSettings {
   chatProvider: ChatProvider;
   chatModel: string;
   systemPrompt: string;
+  contextCharBudget: number;
+  maxAnswerTokens: number;
+  temperature: number;
+}
+
+/**
+ * Holds a stored value inside its allowed range.
+ *
+ * The request schema rejects anything out of range, so this is for rows written
+ * before a bound moved. Clamping rather than throwing means an old row still
+ * produces an answer instead of a broken workspace.
+ */
+function clamp(
+  value: number | null | undefined,
+  bounds: { default: number; min: number; max: number },
+): number {
+  if (typeof value !== "number" || Number.isNaN(value)) return bounds.default;
+  return Math.min(bounds.max, Math.max(bounds.min, value));
 }
 
 function defaultTier(env: Env): Tier {
@@ -89,6 +108,9 @@ export async function loadSettings(
     chatProvider,
     chatModel,
     systemPrompt: row?.systemPrompt?.trim() ? row.systemPrompt : DEFAULT_SYSTEM_PROMPT,
+    contextCharBudget: clamp(row?.contextCharBudget, ANSWER_TUNING.contextCharBudget),
+    maxAnswerTokens: clamp(row?.maxAnswerTokens, ANSWER_TUNING.maxAnswerTokens),
+    temperature: clamp(row?.temperature, ANSWER_TUNING.temperature),
   };
 }
 
@@ -183,6 +205,15 @@ export async function saveSettings(
         ? defaultModelFor("chat", chatProvider)
         : current.chatModel),
     systemPrompt: patch.systemPrompt ?? current.systemPrompt,
+    contextCharBudget: clamp(
+      patch.contextCharBudget ?? current.contextCharBudget,
+      ANSWER_TUNING.contextCharBudget,
+    ),
+    maxAnswerTokens: clamp(
+      patch.maxAnswerTokens ?? current.maxAnswerTokens,
+      ANSWER_TUNING.maxAnswerTokens,
+    ),
+    temperature: clamp(patch.temperature ?? current.temperature, ANSWER_TUNING.temperature),
   };
 
   validateModel(next, env);
@@ -197,6 +228,9 @@ export async function saveSettings(
       chatProvider: next.chatProvider,
       chatModel: next.chatModel,
       systemPrompt: next.systemPrompt,
+      contextCharBudget: next.contextCharBudget,
+      maxAnswerTokens: next.maxAnswerTokens,
+      temperature: next.temperature,
       updatedAt: Date.now(),
     })
     .onConflictDoUpdate({
@@ -208,6 +242,9 @@ export async function saveSettings(
         chatProvider: next.chatProvider,
         chatModel: next.chatModel,
         systemPrompt: next.systemPrompt,
+        contextCharBudget: next.contextCharBudget,
+        maxAnswerTokens: next.maxAnswerTokens,
+        temperature: next.temperature,
         updatedAt: Date.now(),
       },
     });

@@ -323,8 +323,17 @@ if [ "$SKIP_API" = false ]; then
   [ "$PROFILE" = "demo" ] && put_secret DEMO_COOKIE_SECRET "${DEMO_COOKIE_SECRET:-}"
 
   step "Deploying the API"
-  run $WRANGLER deploy --config "$GENERATED"
-  ok "API deployed"
+  # A custom domain needs no zone id and no DNS record of your own: Cloudflare
+  # creates the record and the certificate, as long as the zone is on this
+  # account. The workers.dev default has no host to bind, so it is skipped.
+  API_HOST="$(printf '%s' "$API_ORIGIN" | sed -E 's#^https?://##; s#/.*$##')"
+  if [ -n "$API_HOST" ] && ! printf '%s' "$API_HOST" | grep -qE '(workers\.dev|localhost)$'; then
+    run $WRANGLER deploy --config "$GENERATED" --domain "$API_HOST"
+    ok "API deployed and bound to $API_HOST"
+  else
+    run $WRANGLER deploy --config "$GENERATED"
+    ok "API deployed"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -349,6 +358,35 @@ if [ "$SKIP_WEB" = false ]; then
   fi
   run $WRANGLER pages deploy dist --project-name "$PAGES_PROJECT" --branch main --commit-dirty=true
   ok "interface deployed"
+
+  # Pages has no wrangler command for custom domains, so this is the REST API.
+  # It needs the account and project only: the zone is found from the name, and
+  # Cloudflare writes the DNS record when the zone is on the same account.
+  WEB_HOST="$(printf '%s' "$WEB_ORIGIN" | sed -E 's#^https?://##; s#/.*$##')"
+  if [ -n "$WEB_HOST" ] && ! printf '%s' "$WEB_HOST" | grep -qE '(pages\.dev|localhost)$'; then
+    step "Custom domain"
+    if [ "$DRY_RUN" = true ]; then
+      skip "would attach $WEB_HOST to the Pages project $PAGES_PROJECT"
+    elif [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+      skip "no API token, attach $WEB_HOST in the dashboard instead"
+    else
+      DOMAIN_API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT/domains"
+      # 409 means it is already attached, which is success on a repeat run.
+      DOMAIN_STATUS="$(curl -s -o /tmp/rib-domain.json -w '%{http_code}' -X POST "$DOMAIN_API" \
+        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+        -H "Content-Type: application/json" \
+        --data "{\"name\":\"$WEB_HOST\"}" || echo 000)"
+      case "$DOMAIN_STATUS" in
+        200 | 201) ok "attached $WEB_HOST to $PAGES_PROJECT" ;;
+        409) skip "$WEB_HOST is already attached" ;;
+        *)
+          warn "could not attach $WEB_HOST (HTTP $DOMAIN_STATUS). Add it in the dashboard under Pages, $PAGES_PROJECT, Custom domains."
+          [ -s /tmp/rib-domain.json ] && printf '  %s%s%s\n' "$DIM" "$(head -c 200 /tmp/rib-domain.json)" "$RESET"
+          ;;
+      esac
+      rm -f /tmp/rib-domain.json
+    fi
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -369,14 +407,15 @@ SUMMARY
 
 if [ "$PROFILE" = "demo" ]; then
   cat <<SUMMARY
-  1. Point $WEB_ORIGIN at the Pages project, and $API_ORIGIN at the Worker.
-     Both are custom domain settings in the Cloudflare dashboard.
-  2. Load the document the demo answers from:
+  1. Load the document the demo answers from:
 
        ADMIN_TOKEN='...' node scripts/seed-demo.ts \\
          --api $API_ORIGIN --tenant ${DEMO_TENANT_ID:-demo-curated}
 
-  3. Open $WEB_ORIGIN/demo and ask it something.
+  2. Open $WEB_ORIGIN/demo and ask it something.
+
+  Both domains were attached above. A certificate can take a few minutes the
+  first time, so a failure to connect right away is usually just that.
 SUMMARY
 else
   cat <<SUMMARY

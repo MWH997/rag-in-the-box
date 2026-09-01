@@ -1,4 +1,4 @@
-import type { Tier } from "@rag/shared";
+import { ANSWER_TUNING, type Tier } from "@rag/shared";
 import { AlertTriangle, Check, Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +17,59 @@ const PROVIDER_LABEL: Record<string, string> = {
   openai: "OpenAI",
   deepseek: "DeepSeek",
 };
+
+/**
+ * One tuning control.
+ *
+ * The value is held locally while dragging and only saved on release, so a
+ * slider does not fire a request per pixel. The range comes from the shared
+ * bounds, so the interface cannot offer something the API would reject.
+ */
+function TuningRow({
+  bounds,
+  value,
+  disabled,
+  format,
+  onCommit,
+}: {
+  bounds: { min: number; max: number; label: string; help: string; step?: number };
+  value: number;
+  disabled: boolean;
+  format: (value: number) => string;
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  // Follows the saved value when it changes elsewhere, such as a failed save
+  // being rolled back or a reload.
+  useEffect(() => setDraft(value), [value]);
+
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3">
+        <Label htmlFor={`tuning-${bounds.label}`} className="truncate">
+          {bounds.label}
+        </Label>
+        <span className="shrink-0 font-mono text-[0.75rem] text-muted">{format(draft)}</span>
+      </div>
+      <input
+        id={`tuning-${bounds.label}`}
+        type="range"
+        className="w-full accent-[var(--accent)]"
+        min={bounds.min}
+        max={bounds.max}
+        step={bounds.step ?? 1}
+        value={draft}
+        disabled={disabled}
+        onChange={(event) => setDraft(Number(event.target.value))}
+        onPointerUp={() => draft !== value && onCommit(draft)}
+        onKeyUp={() => draft !== value && onCommit(draft)}
+        onBlur={() => draft !== value && onCommit(draft)}
+      />
+      <p className="text-[0.75rem] leading-relaxed text-faint">{bounds.help}</p>
+    </div>
+  );
+}
 
 export function Settings() {
   const [data, setData] = useState<SettingsResponse | null>(null);
@@ -296,6 +349,41 @@ export function Settings() {
                 </Badge>
               ))}
             </div>
+          </CardBody>
+        </Card>
+
+        {/* Answer tuning */}
+        <Card>
+          <CardHeader className="border-b border-line">
+            <CardTitle>Answer tuning</CardTitle>
+            <CardDescription>
+              What each answer is allowed to cost. The context budget is the largest single driver
+              of that cost, because everything retrieved is sent with the question. Watch the effect
+              on the usage screen.
+            </CardDescription>
+          </CardHeader>
+          <CardBody className="space-y-5 pt-4 sm:pt-5">
+            <TuningRow
+              bounds={ANSWER_TUNING.contextCharBudget}
+              value={settings.contextCharBudget}
+              disabled={readOnly || saving}
+              format={(value) => `${value.toLocaleString()} chars`}
+              onCommit={(value) => void save({ contextCharBudget: value })}
+            />
+            <TuningRow
+              bounds={ANSWER_TUNING.maxAnswerTokens}
+              value={settings.maxAnswerTokens}
+              disabled={readOnly || saving}
+              format={(value) => `${value.toLocaleString()} tokens`}
+              onCommit={(value) => void save({ maxAnswerTokens: value })}
+            />
+            <TuningRow
+              bounds={ANSWER_TUNING.temperature}
+              value={settings.temperature}
+              disabled={readOnly || saving}
+              format={(value) => value.toFixed(2)}
+              onCommit={(value) => void save({ temperature: value })}
+            />
           </CardBody>
         </Card>
 

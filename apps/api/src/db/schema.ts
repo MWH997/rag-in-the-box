@@ -1,4 +1,5 @@
 import {
+  ANSWER_TUNING,
   CHAT_PROVIDERS,
   DEFAULT_CHAT_MODEL,
   DEFAULT_EMBEDDING_MODEL,
@@ -162,6 +163,13 @@ export const tenantSettings = sqliteTable("tenant_settings", {
   // a row by hand or reading the schema to learn the default.
   chatModel: text("chat_model").notNull().default(DEFAULT_CHAT_MODEL),
   systemPrompt: text("system_prompt").notNull().default(""),
+  contextCharBudget: integer("context_char_budget")
+    .notNull()
+    .default(ANSWER_TUNING.contextCharBudget.default),
+  maxAnswerTokens: integer("max_answer_tokens")
+    .notNull()
+    .default(ANSWER_TUNING.maxAnswerTokens.default),
+  temperature: real("temperature").notNull().default(ANSWER_TUNING.temperature.default),
   updatedAt: integer("updated_at")
     .notNull()
     .$defaultFn(() => Date.now()),

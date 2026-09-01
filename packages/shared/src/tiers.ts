@@ -61,3 +61,36 @@ export const TIER_LIMITS: Record<Tier, TierLimits> = {
 export function limitsFor(tier: Tier): TierLimits {
   return TIER_LIMITS[tier];
 }
+
+/**
+ * Answer tuning, and the range each value may take.
+ *
+ * These are the knobs that trade cost against answer quality, so they are per
+ * workspace rather than fixed in the source. The bounds are what keeps a
+ * mistake cheap: the context budget is the single largest driver of prompt
+ * cost, and Workers AI bills on tokens in as well as out.
+ */
+export const ANSWER_TUNING = {
+  contextCharBudget: {
+    default: 9_000,
+    min: 1_000,
+    max: 32_000,
+    label: "Context budget",
+    help: "Characters of retrieved passages sent with the question. More context can answer harder questions and costs proportionally more per answer.",
+  },
+  maxAnswerTokens: {
+    default: 700,
+    min: 128,
+    max: 4_000,
+    label: "Longest answer",
+    help: "Tokens the model may spend replying. Output tokens usually cost several times what input tokens cost.",
+  },
+  temperature: {
+    default: 0.1,
+    min: 0,
+    max: 1,
+    step: 0.05,
+    label: "Temperature",
+    help: "How much the model may vary its wording. Low keeps answers close to the source, which is what makes citations line up.",
+  },
+} as const;

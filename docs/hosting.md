@@ -109,24 +109,36 @@ Worker almost nothing.
 
 ## Using your own domain
 
-Two custom domains, both set in the Cloudflare dashboard.
-
-**The interface.** Workers and Pages, your Pages project, Custom domains, Set up
-a custom domain. Point `app.example.com` at it.
-
-**The API.** Your Worker, Settings, Domains and Routes, Add custom domain. Point
-`api.example.com` at it.
-
-Then update `.env` and deploy again:
+Put the two hostnames in `.env` and deploy. The script attaches both.
 
 ```
 API_ORIGIN=https://api.example.com
 WEB_ORIGIN=https://app.example.com
 ```
 
-Both must be on HTTPS. The session cookie is set with `Secure` and
+```bash
+./scripts/deploy.sh
+```
+
+The Worker is bound with `wrangler deploy --domain`, and the Pages project
+through the Cloudflare API. Both create the DNS record and the certificate for
+you, as long as the zone is on the same account.
+
+**No zone id is needed.** Custom domains exist precisely so you do not have to
+touch DNS, which is why nothing in `.env.example` asks for one. If you have seen
+`CLOUDFLARE_ZONE_ID` in other projects, that is for ordinary Worker routes
+(`example.com/api/*`), which this does not use.
+
+A certificate takes a few minutes the first time. A connection failure straight
+after a first deploy is usually that, not a mistake.
+
+If the zone lives on a different Cloudflare account from the Worker, neither
+call can write the DNS record. The script says so and keeps going, and you add a
+CNAME on the account that holds the zone.
+
+Both origins must be HTTPS. The session cookie is set with `Secure` and
 `SameSite=None` because the two halves are on different origins, and a browser
-will refuse to store that over plain HTTP.
+refuses to store that over plain HTTP.
 
 ## Adding a workspace for someone else
 
