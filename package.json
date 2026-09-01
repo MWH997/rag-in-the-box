@@ -26,6 +26,7 @@
     "db:generate": "npm run db:generate --workspace apps/api",
     "db:migrate:local": "npm run db:migrate:local --workspace apps/api",
     "verify": "npm run typecheck && npm run lint && npm run format && npm run test",
+    "qa": "node qa/run.mjs",
     "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
     "build:shared": "npm run build --workspace packages/shared",
     "dev:api:only": "npm run dev --workspace apps/api",
@@ -40,6 +41,7 @@
     "concurrently": "^10.0.5",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
+    "playwright": "^1.62.1",
     "prettier": "^3.9.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.1"

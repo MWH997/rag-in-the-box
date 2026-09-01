@@ -107,20 +107,57 @@ function contrast(foreground, background) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** The colour actually painted behind an element, walking up through transparency. */
+/**
+ * The colour actually painted behind an element.
+ *
+ * Walking up the ancestors is not enough. A segmented control paints its
+ * selected background with an absolutely positioned sibling behind the label,
+ * and an ancestor walk sees straight past it to the container, then reports
+ * dark text on a dark container and calls it a 1:1 failure that nobody can see.
+ *
+ * elementsFromPoint returns what the browser actually stacked at that spot, in
+ * paint order, so a sibling underlay counts and so does anything else that
+ * happens to sit behind. Everything above the element itself is ignored: that
+ * paints over the text rather than behind it.
+ */
 function effectiveBackground(element) {
-  let node = element;
-  let result = { r: 255, g: 255, b: 255, a: 1 };
-  const stack = [];
-  while (node && node !== document.documentElement.parentElement) {
+  const rect = element.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  const inView = x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
+
+  // Point sampling only works for what is currently on screen. Clamping the
+  // point for an element further down the page samples whatever happens to sit
+  // at the viewport edge instead, which produced a confident 1:1 for text that
+  // is perfectly legible. Off screen, the ancestor walk is the honest answer.
+  let behind;
+  if (inView) {
+    const stacked = document.elementsFromPoint(x, y);
+    const start = stacked.indexOf(element);
+    behind = start === -1 ? null : stacked.slice(start);
+  }
+  if (!behind) {
+    behind = [];
+    for (let node = element; node; node = node.parentElement) behind.push(node);
+  }
+
+  const layers = [];
+  for (const node of behind) {
     const colour = parseColour(getComputedStyle(node).backgroundColor);
     if (colour && colour.a > 0) {
-      stack.push(colour);
+      layers.push(colour);
       if (colour.a === 1) break;
     }
-    node = node.parentElement;
   }
-  for (const colour of stack.reverse()) result = over(colour, result);
+
+  // The page itself is the last resort, and white below that.
+  if (layers.length === 0 || layers[layers.length - 1].a < 1) {
+    const page = parseColour(getComputedStyle(document.documentElement).backgroundColor);
+    if (page && page.a > 0) layers.push(page);
+  }
+
+  let result = { r: 255, g: 255, b: 255, a: 1 };
+  for (const colour of layers.reverse()) result = over(colour, result);
   return result;
 }
 
@@ -246,11 +283,16 @@ window.__ragA11y = function audit() {
     const ratio = contrast(flattened, background);
     const required = isLargeText(style) ? 3 : 4.5;
     if (ratio < required) {
+      // The colours are reported, not just the ratio. A ratio alone sends the
+      // next person hunting for which token is involved, and the answer is
+      // often a pairing nobody expected.
+      const hex = ({ r, g, b }) =>
+        `#${[r, g, b].map((c) => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
       add(
         "1.4.3 Contrast (minimum)",
         "AA",
         element,
-        `${ratio.toFixed(2)}:1 against its background, needs ${required}:1`,
+        `${ratio.toFixed(2)}:1, needs ${required}:1 (${hex(flattened)} on ${hex(background)})`,
       );
     }
   }

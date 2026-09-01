@@ -95,6 +95,7 @@ export function DemoTryBar({
       <input
         ref={inputRef}
         type="file"
+        aria-label="Choose a document to upload"
         className="sr-only"
         accept={ACCEPTED_EXTENSIONS.join(",")}
         onChange={(event) => {

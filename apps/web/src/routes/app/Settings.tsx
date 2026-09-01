@@ -55,7 +55,9 @@ function TuningRow({
       <input
         id={`tuning-${bounds.label}`}
         type="range"
-        className="w-full accent-[var(--accent)]"
+        // h-6 rather than the browser default of 16px, which is under the
+        // 24px minimum pressable size in WCAG 2.5.8.
+        className="h-6 w-full cursor-pointer accent-[var(--accent)]"
         min={bounds.min}
         max={bounds.max}
         step={bounds.step ?? 1}

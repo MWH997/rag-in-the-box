@@ -45,6 +45,31 @@ jobs:
       - name: Build
         run: npm run build
 
+  qa:
+    name: Layout, accessibility and API contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      # Only Chromium, and only its own dependencies. The audits measure layout
+      # and colour, which do not vary usefully between engines, and pulling all
+      # three browsers costs minutes for nothing.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Starts a Worker and serves the built interface, then runs every audit
+      # against them. No Cloudflare account is involved: vectors go to D1 and
+      # the models are the deterministic stand-ins.
+      - name: Audits
+        run: npm run qa
+
   commit-messages:
     name: Conventional commits
     runs-on: ubuntu-latest

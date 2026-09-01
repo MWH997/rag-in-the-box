@@ -134,23 +134,24 @@ apps/api        Hono on Cloudflare Workers. Auth, ingestion, retrieval, chat.
 apps/web        React on Cloudflare Pages. Reader, chat, usage, settings.
 packages/shared Contracts and the chunker, shared by both.
 scripts         Deployment and demo seeding.
-qa              Layout and accessibility audits, and an API contract check.
+qa              Layout, accessibility and contract audits, and the runner
+                that starts everything and fails the build on a finding.
 docs            Architecture, hosting, free tier, local models, demo, security.
 ```
 
 ## Commands
 
-| Command                         | What it does                                    |
-| ------------------------------- | ----------------------------------------------- |
-| `npm run dev`                   | Both servers together                           |
-| `npm run ollama:up`             | Start a local model server in Docker            |
-| `npm run ollama:pull`           | Fetch the local models                          |
-| `npm run verify`                | Typecheck, lint and tests, the same set CI runs |
-| `npm test`                      | Unit tests                                      |
-| `npm run db:migrate:local`      | Apply migrations to the local database          |
-| `apps/api/scripts/smoke.sh`     | End to end check against a running local API    |
-| `./scripts/deploy.sh --dry-run` | Show what a deployment would do                 |
-| `node qa/contract.mjs`          | Check API responses against the shared schemas  |
+| Command                         | What it does                                         |
+| ------------------------------- | ---------------------------------------------------- |
+| `npm run dev`                   | Both servers together                                |
+| `npm run ollama:up`             | Start a local model server in Docker                 |
+| `npm run ollama:pull`           | Fetch the local models                               |
+| `npm run verify`                | Typecheck, lint, format and tests                    |
+| `npm run qa`                    | Layout, accessibility and API contract, in a browser |
+| `npm test`                      | Unit tests                                           |
+| `npm run db:migrate:local`      | Apply migrations to the local database               |
+| `apps/api/scripts/smoke.sh`     | End to end check against a running local API         |
+| `./scripts/deploy.sh --dry-run` | Show what a deployment would do                      |
 
 ## Contributing
 

@@ -116,3 +116,29 @@ matter.
 once that support lands. Two fixes made for 7.0 are already in: `app.on` takes
 its path as an array, and the auth handler is `async` so both branches return
 the same type.
+
+## The audits
+
+`npm run verify` is the fast set: typecheck, lint, formatting and unit tests.
+
+`npm run qa` is the slow one, and CI runs it on every push. It starts a Worker
+and serves a real build, then:
+
+- checks every API response against the schemas in `packages/shared`, because
+  the web client casts rather than parses and would otherwise show a renamed
+  field as a blank space;
+- loads every route at six widths in both themes and runs the layout audit
+  (`qa/audit.js`) and the accessibility audit (`qa/a11y.js`);
+- fails on an uncaught error or an unexpected failed request.
+
+It needs no Cloudflare account. Vectors go to D1 and the models are the
+deterministic stand-ins, the same as `npm run dev`.
+
+It signs in with a provisioned workspace so the screens behind auth are covered
+too. Those are where the last round of findings actually were.
+
+Chromium comes from Playwright:
+
+```bash
+npx playwright install chromium
+```
