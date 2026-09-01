@@ -333,10 +333,7 @@ export type MeResponse = z.infer<typeof MeResponse>;
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export function defaultModelFor(
-  kind: "embedding",
-  provider: EmbeddingProvider,
-): string;
+export function defaultModelFor(kind: "embedding", provider: EmbeddingProvider): string;
 export function defaultModelFor(kind: "chat", provider: ChatProvider): string;
 export function defaultModelFor(
   kind: "embedding" | "chat",

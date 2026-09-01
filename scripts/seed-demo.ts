@@ -94,7 +94,10 @@ async function toMarkdown(
   const pageBreaks: number[] = [];
   let markdown = "";
   text.forEach((page, index) => {
-    const cleaned = page.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    const cleaned = page
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
     if (index > 0) {
       markdown += "\n\n";
       pageBreaks.push(markdown.length);
@@ -168,35 +171,34 @@ async function discard(): Promise<void> {
 }
 
 try {
-for (let call = 0; call < calls; call += 1) {
-  const response = await post<{ embedded: number; elapsedMs: number }>(
-    `/api/documents/${created.documentId}/ingest`,
-    {
-      segments: (segmentBatches[call] ?? []).map((segment) => ({
-        seq: segment.seq,
-        charStart: segment.charStart,
-        page: pageForOffset(pageBreaks, segment.charStart),
-        markdown: segment.markdown,
-      })),
-      chunks: (chunkBatches[call] ?? []).map((chunk) => ({
-        seq: chunk.seq,
-        heading: chunk.heading,
-        page: chunk.page,
-        charStart: chunk.charStart,
-        charEnd: chunk.charEnd,
-        bodyStart: chunk.bodyStart,
-        text: chunk.text,
-        tokenEstimate: chunk.tokenEstimate,
-      })),
-      done: call === calls - 1,
-    },
-  );
-  workerMs += response.elapsedMs;
-  process.stdout.write(
-    `\r  batch ${call + 1}/${calls}, ${response.embedded}/${chunks.length} passages embedded`,
-  );
-}
-
+  for (let call = 0; call < calls; call += 1) {
+    const response = await post<{ embedded: number; elapsedMs: number }>(
+      `/api/documents/${created.documentId}/ingest`,
+      {
+        segments: (segmentBatches[call] ?? []).map((segment) => ({
+          seq: segment.seq,
+          charStart: segment.charStart,
+          page: pageForOffset(pageBreaks, segment.charStart),
+          markdown: segment.markdown,
+        })),
+        chunks: (chunkBatches[call] ?? []).map((chunk) => ({
+          seq: chunk.seq,
+          heading: chunk.heading,
+          page: chunk.page,
+          charStart: chunk.charStart,
+          charEnd: chunk.charEnd,
+          bodyStart: chunk.bodyStart,
+          text: chunk.text,
+          tokenEstimate: chunk.tokenEstimate,
+        })),
+        done: call === calls - 1,
+      },
+    );
+    workerMs += response.elapsedMs;
+    process.stdout.write(
+      `\r  batch ${call + 1}/${calls}, ${response.embedded}/${chunks.length} passages embedded`,
+    );
+  }
 } catch (cause) {
   await discard();
   throw cause;

@@ -27,7 +27,14 @@ migrations_dir = "drizzle"
 
 # Local development runs entirely offline: vectors live in D1 and the AI
 # providers are replaced with deterministic stand-ins. See docs/architecture.md.
+#
+# The two secrets below are development values on purpose, so a fresh clone runs
+# with no setup at all. They are visible to anyone with this repository and are
+# worthless. Real deployments get real secrets through `wrangler secret put`,
+# which scripts/deploy.sh does for you, and those never appear in any file here.
 [vars]
+BETTER_AUTH_SECRET = "development-only-secret-not-used-in-any-deployment"
+ADMIN_TOKEN = "development-only-admin-token"
 APP_MODE = "self-host"
 APP_VERSION = "1.0.0"
 ALLOWED_ORIGIN = "http://localhost:5173"

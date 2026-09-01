@@ -1,160 +1,148 @@
-# RAG-in-a-Box
+# RAG in the Box
 
-A multi-tenant "RAG-in-a-Box" web app: each client (tenant) uploads documents (PDF/CSV/DOCX/TXT/MD),
-the pipeline parses/chunks/embeds them, and the client chats with an LLM agent that answers only
-from their own documents, with citations. See `product.md` for the full spec and build log.
+Ask your documents questions and get answers that show their working. Upload a
+file, ask something, and every claim in the answer links back to the passage it
+came from, highlighted in the original document beside it.
 
-- `apps/web` — React Router v8 SPA (Shadcn UI), deployed to Cloudflare Pages.
-- `apps/api` — HonoJS on Cloudflare Workers. Auth, ingestion, and chat logic.
-- Cloudflare D1 (via Drizzle ORM), R2, and Vectorize.
-- BetterAuth (organization plugin) for auth + tenancy.
+It runs on the Cloudflare free plan. Not "free to try", not "free for a small
+project". The whole thing, on the permanent free tier, with no credit card.
 
-## Local dev setup
+**[Live demo](https://rib.mwhassan.com)** · [Host it yourself](docs/hosting.md) ·
+[How it works](docs/architecture.md) · [What free buys you](docs/free-tier.md)
 
-Prerequisites: Node 22+, npm.
+---
+
+## What it does
+
+- Reads PDF, DOCX, CSV, TXT and Markdown files.
+- Answers only from your documents, and says so plainly when they do not cover
+  the question.
+- Numbers every claim, so pressing a number scrolls the source document to the
+  sentence behind it.
+- Keeps each workspace sealed off from every other one.
+- Reports what each answer cost, against the free daily allowances.
+- Switches between the free and paid Cloudflare plans from a control in the
+  interface.
+
+## Why it is built this way
+
+A Worker on the Cloudflare free plan gets **10 milliseconds of processor time
+per request**. Reading a PDF costs hundreds. That single number decided the
+architecture:
+
+| Step                | Where it runs                | Why                                                                      |
+| ------------------- | ---------------------------- | ------------------------------------------------------------------------ |
+| Read the file       | Your browser                 | Extraction is the expensive part, and your own machine has time to spare |
+| Split into passages | Your browser                 | Same reason, and it means the server never holds the whole document      |
+| Embed and store     | The Worker, in small batches | One outbound call and two writes per request, whatever the file size     |
+| Retrieve and answer | The Worker                   | Waiting on a model costs no processor time                               |
+
+Everything else follows from that. There is no queue to configure, no
+background job to babysit, and no request that can run long enough to be cut
+off. [The full reasoning is in docs/architecture.md](docs/architecture.md).
+
+## Running it locally
+
+Needs Node 24 or newer. Nothing else, and no accounts anywhere.
 
 ```bash
-git clone <repo-url>
-cd rag-in-a-box
+git clone https://github.com/MWH997/rag-in-the-box.git
+cd rag-in-the-box
 npm install
+npm run db:migrate:local
+npm run dev
 ```
 
-### 1. Configure secrets
+Open http://localhost:5173 and create a workspace.
 
-Create `apps/api/.dev.vars` (gitignored — never commit it) with at least:
+Local development runs entirely offline. Vectors live in the local database
+instead of Vectorize, and the models are replaced with deterministic stand-ins
+so retrieval, streaming, citations and usage accounting all exercise the same
+code paths without an API key. See
+[docs/architecture.md](docs/architecture.md#running-without-an-account) for what
+that does and does not prove.
 
-```
-BETTER_AUTH_SECRET=<random value, e.g. `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`>
-ADMIN_TOKEN=<random value, same method — used by the tenant-provisioning endpoint>
-```
-
-The following are required by later pipeline stages (ingestion/chat) but are **not** needed to run
-auth, uploads, or the local parse-triage router:
-
-```
-LLAMA_CLOUD_API_KEY=<LlamaCloud API key — used only when a document routes to LlamaParse>
-OPENAI_API_KEY=<OpenAI API key — used for embeddings>
-DEEPSEEK_API_KEY=<DeepSeek API key — used for the chat agent>
-```
-
-### 2. Apply database migrations (local)
+## Hosting your own
 
 ```bash
-cd apps/api
-npx wrangler d1 migrations apply rag-db --local
+cp .env.example .env
+# fill in CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN
+./scripts/deploy.sh
 ```
 
-### 3. Start the dev servers
+The script creates the database, the vector index and the secrets, applies the
+migrations, and publishes both halves. It skips anything that already exists,
+so running it again after a change is safe. `--dry-run` prints what it would do
+and touches nothing.
 
-From the repo root, in two terminals:
+Full walkthrough, including the exact API token permissions and how to put it
+on your own domain: **[docs/hosting.md](docs/hosting.md)**.
 
-```bash
-npm run dev:api   # apps/api -> http://localhost:8787
-npm run dev:web   # apps/web -> http://localhost:5173
+## What free actually buys you
+
+| Service    | Free allowance                                    | Roughly                                 |
+| ---------- | ------------------------------------------------- | --------------------------------------- |
+| Workers    | 100,000 requests a day, 10 ms processor time each | plenty                                  |
+| Workers AI | 10,000 neurons a day                              | about 150 answers                       |
+| D1         | 5 GB, 5M row reads and 100,000 row writes a day   | tens of thousands of passages           |
+| Vectorize  | 5M stored vector dimensions                       | about 13,000 passages at 384 dimensions |
+| Pages      | unlimited requests, 500 builds a month            | plenty                                  |
+
+The usage screen tracks your own consumption against these numbers. Where each
+one comes from, and what happens when you cross it, is in
+[docs/free-tier.md](docs/free-tier.md).
+
+## Paid tier
+
+One control in the settings screen switches a workspace to the paid tier. It
+raises the limits, lets the Worker parse files itself, turns on optical
+character recognition for scanned documents through LlamaParse, and offers the
+models that Cloudflare requires a billing method for. Any provider key you add
+appears as a choice rather than replacing what is already there.
+
+The Cloudflare paid plan starts at five dollars a month.
+
+## Getting it set up for you
+
+The code is free and always will be. If you would rather not do the setup, I
+will do it for **$300, once**:
+
+- Set up on your own Cloudflare account, which stays yours.
+- Your domain, your keys, your data. I hold nothing afterwards.
+- Your first documents loaded and checked against real questions.
+- Tuned so your volume stays inside the free allowances.
+- A walkthrough call, and two weeks of questions answered.
+
+If it cannot be made to work on your setup, you pay nothing.
+[hello@mwhassan.com](mailto:hello@mwhassan.com?subject=RAG%20in%20the%20Box%20setup)
+
+## Repository layout
+
+```
+apps/api        Hono on Cloudflare Workers. Auth, ingestion, retrieval, chat.
+apps/web        React on Cloudflare Pages. Reader, chat, usage, settings.
+packages/shared Contracts and the chunker, shared by both.
+scripts         Deployment and demo seeding.
+qa              The layout audit used to check every route at six widths.
+docs            Architecture, hosting, free tier, demo, security.
 ```
 
-Visit `http://localhost:5173/login`, sign up, and you'll land on `/app` with an active
-organization automatically provisioned.
+## Commands
 
-### 4. Run the smoke test scripts (optional, requires `npm run dev:api` running)
+| Command                         | What it does                                    |
+| ------------------------------- | ----------------------------------------------- |
+| `npm run dev`                   | Both servers together                           |
+| `npm run verify`                | Typecheck, lint and tests, the same set CI runs |
+| `npm test`                      | Unit tests                                      |
+| `npm run db:migrate:local`      | Apply migrations to the local database          |
+| `apps/api/scripts/smoke.sh`     | End to end check against a running local API    |
+| `./scripts/deploy.sh --dry-run` | Show what a deployment would do                 |
 
-```bash
-cd apps/api
-./scripts/auth-smoke.sh      # signup -> session -> /api/me
-./scripts/upload-smoke.sh    # upload -> R2 -> parse-triage routing
-```
+## Contributing
 
-### 5. Run unit tests / typecheck / lint
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org).
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-```bash
-npm run typecheck   # root: runs tsc --noEmit in every workspace
-npm run lint         # root: eslint across the repo
-cd apps/api && npx vitest run   # parser unit tests
-```
+## Licence
 
-## Environment variables / bindings
-
-| Name | Kind | Purpose |
-|---|---|---|
-| `DB` | D1 binding | main database |
-| `VECTORIZE` | Vectorize binding | vector index, 1536 dims, cosine |
-| `BUCKET` | R2 binding | staged raw uploads, bucket `rag-uploads` |
-| `BETTER_AUTH_SECRET` | secret | BetterAuth session signing |
-| `BETTER_AUTH_URL` | var | API origin URL (`http://localhost:8787` locally) |
-| `ADMIN_TOKEN` | secret | protects `POST /api/admin/provision` |
-| `LLAMA_CLOUD_API_KEY` | secret | LlamaParse (only reached for docs the triage router falls back on) |
-| `OPENAI_API_KEY` | secret | embeddings (`text-embedding-3-small`) |
-| `DEEPSEEK_API_KEY` | secret | chat agent |
-| `DEEPSEEK_MODEL` | var | e.g. `deepseek-chat` (default) — never hardcode the model name in code |
-| `ALLOWED_ORIGIN` | var | frontend origin for CORS (`http://localhost:5173` locally) |
-
-Secrets go in `apps/api/.dev.vars` locally; in production use `wrangler secret put <NAME>`. Vars
-(`DEEPSEEK_MODEL`, `ALLOWED_ORIGIN`, `BETTER_AUTH_URL`) live in `apps/api/wrangler.toml`'s `[vars]`.
-
-## Migration commands
-
-Migrations are generated by Drizzle from `apps/api/src/db/schema.ts` (which re-exports the
-BetterAuth-generated `auth-schema.ts`) and applied by Wrangler:
-
-```bash
-cd apps/api
-npx drizzle-kit generate                        # after changing schema.ts -> writes drizzle/NNNN_*.sql
-npx wrangler d1 migrations apply rag-db --local  # apply locally
-npx wrangler d1 migrations apply rag-db --remote # apply to the deployed D1 database (post-deploy)
-```
-
-BetterAuth's own tables are regenerated (not hand-edited) via:
-
-```bash
-npx @better-auth/cli generate --config auth.config.ts --output src/db/auth-schema.ts
-```
-
-## Tenant onboarding
-
-New tenants (clients) are provisioned via `apps/api/scripts/provision-tenant.ts`, which calls the
-admin-only `POST /api/admin/provision` endpoint. This creates a user + organization for the tenant
-and returns a one-time password-reset link — there is no self-serve signup for new clients.
-
-```bash
-cd apps/api
-ADMIN_TOKEN=<value from .dev.vars locally, or the deployed secret> \
-  node scripts/provision-tenant.ts <email> "<org name>" [baseUrl]
-```
-
-- `baseUrl` defaults to `http://localhost:8787` (a local `npm run dev` instance). Pass the deployed
-  API URL to provision a tenant in production.
-- The script prints an `inviteUrl` — send this link to the client so they can set their own
-  password. The account's initial password is a random value never given to anyone; it's only
-  reachable via this link.
-
-## Deploy steps
-
-(Full execution of these steps is TICKET-28; documented here for reference.)
-
-1. Create the real Cloudflare resources (if not already done):
-   ```bash
-   cd apps/api
-   npx wrangler d1 create rag-db
-   npx wrangler vectorize create rag-index --dimensions=1536 --metric=cosine
-   npx wrangler vectorize create-metadata-index rag-index --property-name=tenant_id --type=string
-   npx wrangler r2 bucket create rag-uploads
-   ```
-   Update `wrangler.toml`'s `database_id` with the real value from `d1 create`'s output.
-2. Apply migrations to the real database: `npx wrangler d1 migrations apply rag-db --remote`.
-3. Set secrets: `npx wrangler secret put BETTER_AUTH_SECRET`, `ADMIN_TOKEN`, `LLAMA_CLOUD_API_KEY`,
-   `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`.
-4. Set `BETTER_AUTH_URL` and `ALLOWED_ORIGIN` in `wrangler.toml`'s `[vars]` to the deployed Worker
-   and Pages URLs respectively (cookies are cross-origin between them — see `src/lib/auth.ts`'s
-   comment on `sameSite`/`secure`).
-5. Deploy the API: `npx wrangler deploy` (from `apps/api`).
-6. Build and deploy the web app to Cloudflare Pages (`apps/web`, `npm run build`, output `dist/`),
-   with `VITE_API_URL` set to the deployed API URL.
-
-## Known free-tier limits
-
-Cloudflare's free-tier limits (Workers CPU/request time, D1 database size, Vectorize vector/query
-quotas) change over time — **verify current limits at deploy time** against the Cloudflare docs
-(`developers.cloudflare.com/workers/platform/limits/`, `/d1/platform/limits/`,
-`/vectorize/platform/limits/`) rather than relying on numbers hardcoded here. The upload endpoint's
-100 MB cap (`apps/api/src/routes/documents.ts`) is sized against the Workers free-plan request-body
-limit as of this writing — re-check it before raising or relying on it.
+MIT. See [LICENSE](LICENSE).

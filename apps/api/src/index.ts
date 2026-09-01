@@ -84,7 +84,11 @@ app.onError((error, c) => {
   }
   if (error instanceof ZodError) {
     return c.json(
-      { error: "The request body did not validate.", code: "invalid_request", details: error.issues },
+      {
+        error: "The request body did not validate.",
+        code: "invalid_request",
+        details: error.issues,
+      },
       422,
     );
   }

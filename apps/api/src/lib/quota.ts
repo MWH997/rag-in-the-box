@@ -131,11 +131,7 @@ export async function consumeQuota(
 }
 
 /** Gives back allowance consumed by an action that then failed upstream. */
-export async function refundQuota(
-  db: Database,
-  checks: QuotaCheck[],
-  amount = 1,
-): Promise<void> {
+export async function refundQuota(db: Database, checks: QuotaCheck[], amount = 1): Promise<void> {
   const day = utcDay();
   for (const check of checks) {
     await db

@@ -38,11 +38,7 @@ function fromBase64(value: string): Uint8Array {
   return bytes;
 }
 
-async function derive(
-  password: string,
-  salt: Uint8Array,
-  iterations: number,
-): Promise<Uint8Array> {
+async function derive(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password.normalize("NFKC")),

@@ -17,8 +17,8 @@ export const settingsRoute = new Hono<AppEnv>();
  * The catalogue the settings screen renders.
  *
  * Options a deployment cannot actually use are still listed, with the reason
- * attached, so an operator can see what turning on a key would unlock instead
- * of wondering why a provider is missing.
+ * attached, so an operator can see what adding a key would make available
+ * instead of wondering why a provider is missing.
  */
 function catalogue(env: Env) {
   const caps = capabilities(env);
@@ -43,7 +43,11 @@ function catalogue(env: Env) {
     chat: Object.entries(CHAT_MODELS).map(([provider, models]) => ({
       provider,
       available:
-        provider === "openai" ? caps.openai : provider === "deepseek" ? caps.deepseek : caps.workersAi,
+        provider === "openai"
+          ? caps.openai
+          : provider === "deepseek"
+            ? caps.deepseek
+            : caps.workersAi,
       requires:
         provider === "openai"
           ? "OPENAI_API_KEY"
@@ -78,10 +82,7 @@ settingsRoute.patch("/settings", async (c) => {
   // The public demo runs on one fixed configuration. Letting visitors change
   // the model would let them spend the shared daily allowance far faster.
   if (tenant.mode === "demo") {
-    return c.json(
-      { error: "Settings are fixed on the public demo.", code: "demo_read_only" },
-      403,
-    );
+    return c.json({ error: "Settings are fixed on the public demo.", code: "demo_read_only" }, 403);
   }
 
   const patch = UpdateSettingsRequest.parse(await c.req.json());

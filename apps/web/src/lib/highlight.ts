@@ -15,8 +15,26 @@
 const HIGHLIGHT_NAME = "rag-citation";
 
 const BLOCK_TAGS = new Set([
-  "P", "DIV", "LI", "TD", "TH", "TR", "H1", "H2", "H3", "H4", "H5", "H6",
-  "BLOCKQUOTE", "PRE", "SECTION", "ARTICLE", "UL", "OL", "TABLE", "BR",
+  "P",
+  "DIV",
+  "LI",
+  "TD",
+  "TH",
+  "TR",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+  "BLOCKQUOTE",
+  "PRE",
+  "SECTION",
+  "ARTICLE",
+  "UL",
+  "OL",
+  "TABLE",
+  "BR",
 ]);
 
 interface Piece {
@@ -63,7 +81,7 @@ function flatten(container: HTMLElement): { pieces: Piece[]; text: string } {
 }
 
 /** Collapses whitespace and lowercases, keeping a map back to source offsets. */
-function normalize(text: string): { value: string; map: number[] } {
+export function normalize(text: string): { value: string; map: number[] } {
   const map: number[] = [];
   let value = "";
   let previousWasSpace = true;
@@ -80,11 +98,17 @@ function normalize(text: string): { value: string; map: number[] } {
     map.push(index);
     previousWasSpace = false;
   }
+  // Leading whitespace is skipped by the loop; trailing whitespace is trimmed
+  // here so both ends behave the same and offsets stay aligned with the map.
+  if (value.endsWith(" ")) {
+    value = value.slice(0, -1);
+    map.pop();
+  }
   return { value, map };
 }
 
 /** Removes the markdown syntax that never reaches the rendered page. */
-function stripMarkdown(text: string): string {
+export function stripMarkdown(text: string): string {
   return text
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
     .replace(/^\s{0,3}>\s?/gm, "")
@@ -108,7 +132,7 @@ function positionOf(pieces: Piece[], offset: number): { node: Text; offset: numb
 }
 
 /** Every place a probe occurs in the haystack. */
-function occurrences(haystack: string, probe: string): number[] {
+export function occurrences(haystack: string, probe: string): number[] {
   const found: number[] = [];
   let at = haystack.indexOf(probe);
   while (at !== -1 && found.length < 64) {

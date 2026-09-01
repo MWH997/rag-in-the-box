@@ -54,12 +54,9 @@ chatRoute.post("/chat", async (c) => {
       await send({ type: "status", stage: "retrieving" });
       const retrievalStarted = Date.now();
 
-      const embedding = await embed(
-        c.env,
-        settings.embeddingProvider,
-        settings.embeddingModel,
-        [question.content],
-      );
+      const embedding = await embed(c.env, settings.embeddingProvider, settings.embeddingModel, [
+        question.content,
+      ]);
       const vector = embedding.vectors[0];
       if (!vector) throw new HttpError(502, "embed_failed", "Could not embed the question.");
 
@@ -98,10 +95,7 @@ chatRoute.post("/chat", async (c) => {
               .from(chunks)
               .innerJoin(documents, eq(documents.id, chunks.documentId))
               .where(
-                and(
-                  inArray(chunks.id, chunkIds),
-                  inArray(chunks.tenantId, tenant.readTenantIds),
-                ),
+                and(inArray(chunks.id, chunkIds), inArray(chunks.tenantId, tenant.readTenantIds)),
               )
           : [];
 
@@ -113,7 +107,10 @@ chatRoute.post("/chat", async (c) => {
           // The snippet skips the overlap carried from the previous chunk, so
           // the reader is pointed at this passage rather than at the tail of
           // the one before it.
-          const bodyOffset = Math.max(0, Math.min(row.bodyStart - row.charStart, row.text.length - 1));
+          const bodyOffset = Math.max(
+            0,
+            Math.min(row.bodyStart - row.charStart, row.text.length - 1),
+          );
           const citation: Citation = {
             index: index + 1,
             chunkId: row.id,

@@ -1,12 +1,4 @@
-import {
-  blob,
-  index,
-  integer,
-  primaryKey,
-  real,
-  sqliteTable,
-  text,
-} from "drizzle-orm/sqlite-core";
+import { blob, index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // BetterAuth's tables (user/session/account/verification/organization/member/
 // invitation) live in ./auth-schema.ts, regenerated with
@@ -146,7 +138,9 @@ export const chunkVectors = sqliteTable(
 /** Per-tenant configuration, including the free/paid tier switch. */
 export const tenantSettings = sqliteTable("tenant_settings", {
   tenantId: text("tenant_id").primaryKey(),
-  tier: text("tier", { enum: ["free", "paid"] }).notNull().default("free"),
+  tier: text("tier", { enum: ["free", "paid"] })
+    .notNull()
+    .default("free"),
   embeddingProvider: text("embedding_provider", { enum: ["workers-ai", "openai"] })
     .notNull()
     .default("workers-ai"),
@@ -154,9 +148,7 @@ export const tenantSettings = sqliteTable("tenant_settings", {
   chatProvider: text("chat_provider", { enum: ["workers-ai", "deepseek", "openai"] })
     .notNull()
     .default("workers-ai"),
-  chatModel: text("chat_model")
-    .notNull()
-    .default("@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
+  chatModel: text("chat_model").notNull().default("@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
   systemPrompt: text("system_prompt").notNull().default(""),
   updatedAt: integer("updated_at")
     .notNull()

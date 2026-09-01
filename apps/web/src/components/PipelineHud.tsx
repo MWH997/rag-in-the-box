@@ -26,7 +26,11 @@ export function PipelineHud({ stats, className }: { stats: PipelineStats; classN
   const items = [
     { icon: Search, label: "Retrieval", value: formatDuration(stats.retrievalMs) },
     { icon: Sparkles, label: "Generation", value: formatDuration(generationMs) },
-    { icon: Cpu, label: "Tokens", value: `${stats.promptTokens} in / ${stats.completionTokens} out` },
+    {
+      icon: Cpu,
+      label: "Tokens",
+      value: `${stats.promptTokens} in / ${stats.completionTokens} out`,
+    },
     { icon: Zap, label: "Neurons", value: stats.neurons.toFixed(1) },
   ];
 

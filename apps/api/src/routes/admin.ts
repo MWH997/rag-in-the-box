@@ -16,7 +16,9 @@ const ProvisionRequest = z.object({
 
 adminRoute.post("/admin/provision", async (c) => {
   const authHeader = c.req.header("Authorization");
-  const providedToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : undefined;
+  const providedToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length)
+    : undefined;
 
   if (!secureCompare(providedToken, c.env.ADMIN_TOKEN)) {
     return c.json({ error: "Invalid admin token", code: "unauthorized" }, 401);

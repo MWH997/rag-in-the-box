@@ -1,4 +1,4 @@
-import type { ChatMessage, Citation } from "@rag/shared";
+import type { Citation } from "@rag/shared";
 import { AlertTriangle, ArrowUp, MessageSquare, Square } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
@@ -163,7 +163,9 @@ export function ChatPane({
                       >
                         <span className="font-mono">{citation.index}</span>
                         <span className="truncate">{citation.filename}</span>
-                        {citation.page && <span className="shrink-0 text-faint">p{citation.page}</span>}
+                        {citation.page && (
+                          <span className="shrink-0 text-faint">p{citation.page}</span>
+                        )}
                       </button>
                     ))}
                   </div>

@@ -79,7 +79,9 @@ export function offlineChat(options: ChatStreamOptions): ChatStreamResult {
   const questionLine = lastTurn.split("\n").find((line) => line.startsWith("Question: "));
   const question = questionLine?.slice("Question: ".length) ?? lastTurn;
 
-  const passages = [...lastTurn.matchAll(/\[(\d+)\]\s([^\n]+)\n([\s\S]*?)(?=\n\n\[\d+\]|\n\nQuestion:|$)/g)];
+  const passages = [
+    ...lastTurn.matchAll(/\[(\d+)\]\s([^\n]+)\n([\s\S]*?)(?=\n\n\[\d+\]|\n\nQuestion:|$)/g),
+  ];
 
   const sentences = passages.slice(0, 3).map((match, index) => {
     // Quoted passages carry their own markdown. Left as is, a heading marker

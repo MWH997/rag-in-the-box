@@ -1,0 +1,200 @@
+# Hosting your own copy
+
+About fifteen minutes, most of it waiting. No credit card, and no account
+anywhere except Cloudflare.
+
+## Before you start
+
+- Node 24 or newer. Check with `node -v`.
+- A Cloudflare account. The free one is enough.
+
+## 1. Get the code
+
+```bash
+git clone https://github.com/MWH997/rag-in-the-box.git
+cd rag-in-the-box
+npm install
+```
+
+## 2. Create an API token
+
+Cloudflare dashboard, **My Profile**, **API Tokens**, **Create Token**, then
+**Create Custom Token**. Give it these permissions on your account:
+
+| Permission         | Level |
+| ------------------ | ----- |
+| Workers Scripts    | Edit  |
+| Workers KV Storage | Edit  |
+| D1                 | Edit  |
+| Vectorize          | Edit  |
+| Workers AI         | Edit  |
+| Cloudflare Pages   | Edit  |
+| Account Settings   | Read  |
+
+Copy the token when it is shown. It is not shown again.
+
+Your account id is in the right hand column of any account page in the
+dashboard.
+
+If you would rather not create a token, leave `CLOUDFLARE_API_TOKEN` blank and
+the deploy script will open a browser to sign you in instead.
+
+## 3. Fill in the environment
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and set:
+
+```
+CLOUDFLARE_ACCOUNT_ID=...
+CLOUDFLARE_API_TOKEN=...
+BETTER_AUTH_SECRET=...
+ADMIN_TOKEN=...
+```
+
+Generate the two secrets:
+
+```bash
+node -e "console.log(crypto.randomUUID().replaceAll('-',''))"
+```
+
+Leave everything else alone for a first run. `.env` is ignored by git.
+
+## 4. Deploy
+
+```bash
+./scripts/deploy.sh
+```
+
+It will:
+
+1. Check your toolchain and credentials before changing anything.
+2. Create the D1 database if it does not exist.
+3. Create the Vectorize index and its metadata index if they do not exist.
+4. Write a Worker configuration from your `.env`.
+5. Apply the migrations.
+6. Upload the secrets.
+7. Deploy the Worker and the interface.
+8. Print the URLs.
+
+Run `./scripts/deploy.sh --dry-run` first if you want to see the plan without
+touching your account.
+
+Anything that already exists is left alone, so running it again after a change
+is safe.
+
+## 5. Point it at itself
+
+The first run prints the two URLs Cloudflare gave you. Put them back into
+`.env`:
+
+```
+API_ORIGIN=https://rag-in-the-box.your-subdomain.workers.dev
+WEB_ORIGIN=https://rag-in-the-box.pages.dev
+```
+
+Then deploy once more. This matters: the interface needs to know where the API
+is, and the API only accepts browser requests from the origin it is told about.
+
+## 6. Open it
+
+Go to your `WEB_ORIGIN`, create a workspace, and add a document. The file is
+read in your browser, so a large PDF costs your machine a second or two and the
+Worker almost nothing.
+
+## Using your own domain
+
+Two custom domains, both set in the Cloudflare dashboard.
+
+**The interface.** Workers and Pages, your Pages project, Custom domains, Set up
+a custom domain. Point `app.example.com` at it.
+
+**The API.** Your Worker, Settings, Domains and Routes, Add custom domain. Point
+`api.example.com` at it.
+
+Then update `.env` and deploy again:
+
+```
+API_ORIGIN=https://api.example.com
+WEB_ORIGIN=https://app.example.com
+```
+
+Both must be on HTTPS. The session cookie is set with `Secure` and
+`SameSite=None` because the two halves are on different origins, and a browser
+will refuse to store that over plain HTTP.
+
+## Adding a workspace for someone else
+
+There is no self-serve sign-up form for other people by design. Create a
+workspace for them and send the link:
+
+```bash
+ADMIN_TOKEN='...' node apps/api/scripts/provision-tenant.ts \
+  them@example.com "Their organisation" https://api.example.com
+```
+
+It prints a one-time link they use to set their own password. No password is
+ever transmitted or known by you.
+
+## Optional providers
+
+Each of these is optional. Adding one makes it available as a choice; it never
+replaces what is already working.
+
+**OpenAI.** Better answers and an alternative embedding model, billed by OpenAI.
+Add `OPENAI_API_KEY` to `.env` and deploy again.
+
+**DeepSeek.** Add `DEEPSEEK_API_KEY`. Note that DeepSeek models are also on
+Workers AI without a DeepSeek account, though Cloudflare requires a billing
+method for those.
+
+**LlamaParse.** Reads scanned documents that have no extractable text. Add
+`LLAMA_CLOUD_API_KEY`. The free plan gives 10,000 credits a month, about 3,300
+pages at the cost effective tier. Only reachable on the paid tier, since it runs
+in the Worker.
+
+After adding any key, deploy again and pick it on the settings screen.
+
+## Keeping it up to date
+
+```bash
+git pull
+npm install
+./scripts/deploy.sh
+```
+
+Migrations are applied by the script. They only ever add.
+
+## Costs
+
+Nothing, until you cross an allowance. See [free-tier.md](free-tier.md) for
+where those sit and what happens when you reach one. The free plan stops rather
+than charging you.
+
+If you want more headroom, the Workers Paid plan is five dollars a month. Turn
+it on in the Cloudflare dashboard, then switch your workspace to the paid tier
+on the settings screen.
+
+## When something goes wrong
+
+**"Cloudflare rejected those credentials."** The token is missing a permission
+from the table above, or the account id is wrong.
+
+**Sign-in does nothing and the browser console mentions cookies.** `API_ORIGIN`
+and `WEB_ORIGIN` in `.env` do not match where the app is actually served from.
+Fix them and deploy again.
+
+**"Worker exceeded CPU time limit" on sign-in.** `PASSWORD_KDF_ITERATIONS` is
+set too high for the free plan. The default of 100000 fits; 600000 needs the
+paid plan.
+
+**Uploads fail on a scanned PDF.** There is no text in it to extract. That needs
+the paid tier and a LlamaParse key.
+
+**Answers are poor after changing the embedding model.** The settings screen
+will be showing a re-index prompt. Old passages are in a different vector space
+until you take it.
+
+If none of that helps, open an issue with what you ran and what it printed.

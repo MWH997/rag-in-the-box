@@ -12,7 +12,10 @@ function Sparkbars({ values, labels }: { values: number[]; labels: string[] }) {
   return (
     <div className="flex h-24 items-end gap-1" role="img" aria-label="Daily activity, last 14 days">
       {values.map((value, index) => (
-        <div key={labels[index] ?? index} className="group relative flex min-w-0 flex-1 flex-col justify-end">
+        <div
+          key={labels[index] ?? index}
+          className="group relative flex min-w-0 flex-1 flex-col justify-end"
+        >
           <div
             className={cn(
               "w-full rounded-t-[3px] transition-colors",

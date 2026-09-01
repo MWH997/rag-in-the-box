@@ -2,8 +2,8 @@
  * Tier definitions.
  *
  * "free" is sized so a deployment stays inside the Cloudflare free plan.
- * "paid" is sized for the Workers Paid plan ($5/month minimum) and unlocks the
- * server-side parsing path plus larger models.
+ * "paid" is sized for the Workers Paid plan, which starts at five dollars a
+ * month, and turns on the server-side parsing path plus larger models.
  *
  * Every number here is a product decision, not a platform fact. The platform
  * facts live in docs/free-tier.md with links to Cloudflare's own limit pages.

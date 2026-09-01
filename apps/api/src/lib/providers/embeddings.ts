@@ -1,8 +1,4 @@
-import {
-  embeddingFitsIndex,
-  findEmbeddingModel,
-  type EmbeddingProvider,
-} from "@rag/shared";
+import { embeddingFitsIndex, findEmbeddingModel, type EmbeddingProvider } from "@rag/shared";
 
 import { indexDimensions, isOfflineAi, type Env } from "../../env.js";
 import { offlineEmbed } from "./offline.js";
@@ -56,18 +52,17 @@ function checkModelFitsIndex(provider: EmbeddingProvider, model: string, expecte
   }
 }
 
-async function embedWorkersAi(
-  env: Env,
-  model: string,
-  inputs: string[],
-): Promise<EmbeddingResult> {
+async function embedWorkersAi(env: Env, model: string, inputs: string[]): Promise<EmbeddingResult> {
   const expected = indexDimensions(env);
   checkModelFitsIndex("workers-ai", model, expected);
   let response: { data?: number[][]; shape?: number[] };
   try {
-    response = (await env.AI.run(model as Parameters<Ai["run"]>[0], {
-      text: inputs,
-    } as never)) as { data?: number[][]; shape?: number[] };
+    response = (await env.AI.run(
+      model as Parameters<Ai["run"]>[0],
+      {
+        text: inputs,
+      } as never,
+    )) as { data?: number[][]; shape?: number[] };
   } catch (cause) {
     throw new ProviderError(
       `Workers AI embedding call failed: ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -77,10 +72,7 @@ async function embedWorkersAi(
 
   const data = response.data;
   if (!Array.isArray(data) || data.length !== inputs.length) {
-    throw new ProviderError(
-      "Workers AI returned an unexpected embedding shape",
-      "embed_bad_shape",
-    );
+    throw new ProviderError("Workers AI returned an unexpected embedding shape", "embed_bad_shape");
   }
 
   const vectors = data.map((vector) => normalize(vector));
@@ -93,11 +85,7 @@ async function embedWorkersAi(
   };
 }
 
-async function embedOpenAi(
-  env: Env,
-  model: string,
-  inputs: string[],
-): Promise<EmbeddingResult> {
+async function embedOpenAi(env: Env, model: string, inputs: string[]): Promise<EmbeddingResult> {
   const apiKey = env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new ProviderError("OPENAI_API_KEY is not configured", "embed_missing_key", 400);

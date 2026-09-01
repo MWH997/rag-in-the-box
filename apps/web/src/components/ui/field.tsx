@@ -1,4 +1,9 @@
-import { forwardRef, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import {
+  forwardRef,
+  type InputHTMLAttributes,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,11 +19,14 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   },
 );
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  function Textarea({ className, ...props }, ref) {
-    return <textarea ref={ref} className={cn(BASE, "py-2.5 leading-relaxed", className)} {...props} />;
-  },
-);
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function Textarea({ className, ...props }, ref) {
+  return (
+    <textarea ref={ref} className={cn(BASE, "py-2.5 leading-relaxed", className)} {...props} />
+  );
+});
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
   function Select({ className, children, ...props }, ref) {
@@ -40,10 +48,7 @@ export function Label({
   htmlFor?: string;
 }) {
   return (
-    <label
-      htmlFor={htmlFor}
-      className={cn("text-[0.8125rem] font-medium text-muted", className)}
-    >
+    <label htmlFor={htmlFor} className={cn("text-[0.8125rem] font-medium text-muted", className)}>
       {children}
     </label>
   );

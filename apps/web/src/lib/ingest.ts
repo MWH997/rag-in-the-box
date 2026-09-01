@@ -36,9 +36,7 @@ export interface IngestResult {
 /** Bytes of segment markdown allowed in one request, well under D1's row cap. */
 const SEGMENT_BYTES_PER_CALL = 48_000;
 
-function batchSegments(
-  segments: ReturnType<typeof segmentMarkdown>,
-): (typeof segments)[] {
+function batchSegments(segments: ReturnType<typeof segmentMarkdown>): (typeof segments)[] {
   const batches: (typeof segments)[] = [];
   let current: typeof segments = [];
   let size = 0;

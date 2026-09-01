@@ -63,7 +63,8 @@ export async function loadSettings(
   const caps = capabilities(env);
   const tier = row?.tier ?? defaultTier(env);
 
-  let embeddingProvider = (row?.embeddingProvider ?? DEFAULT_EMBEDDING_PROVIDER) as EmbeddingProvider;
+  let embeddingProvider = (row?.embeddingProvider ??
+    DEFAULT_EMBEDDING_PROVIDER) as EmbeddingProvider;
   let embeddingModel = row?.embeddingModel ?? DEFAULT_EMBEDDING_MODEL;
   if (embeddingProvider === "openai" && !caps.openai) {
     embeddingProvider = "workers-ai";

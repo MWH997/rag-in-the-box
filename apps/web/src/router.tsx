@@ -22,7 +22,9 @@ const Documents = lazy(() =>
   import("./routes/app/Documents").then((module) => ({ default: module.Documents })),
 );
 const Chat = lazy(() => import("./routes/app/Chat").then((module) => ({ default: module.Chat })));
-const Usage = lazy(() => import("./routes/app/Usage").then((module) => ({ default: module.Usage })));
+const Usage = lazy(() =>
+  import("./routes/app/Usage").then((module) => ({ default: module.Usage })),
+);
 const Settings = lazy(() =>
   import("./routes/app/Settings").then((module) => ({ default: module.Settings })),
 );

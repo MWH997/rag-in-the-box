@@ -62,7 +62,10 @@ export function Demo() {
   return (
     <div className="flex h-dvh min-w-0 flex-col overflow-hidden bg-bg">
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-raised px-4 sm:px-6">
-        <Link to="/" className="-mx-1 flex min-w-0 shrink items-center gap-2 rounded-lg px-1 py-1.5">
+        <Link
+          to="/"
+          className="-mx-1 flex min-w-0 shrink items-center gap-2 rounded-lg px-1 py-1.5"
+        >
           <ArrowLeft className="h-4 w-4 shrink-0 text-faint sm:hidden" aria-hidden />
           <Wordmark className="hidden sm:flex" />
           <span className="truncate text-sm font-medium text-ink sm:hidden">Demo</span>

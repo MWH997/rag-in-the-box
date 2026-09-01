@@ -122,7 +122,12 @@ export function Landing() {
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Button>
                 </Link>
-                <a href={REPO_URL} target="_blank" rel="noreferrer noopener" className="w-full sm:w-auto">
+                <a
+                  href={REPO_URL}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="w-full sm:w-auto"
+                >
                   <Button size="lg" variant="secondary" className="w-full sm:w-auto">
                     <GithubMark className="h-4 w-4" aria-hidden />
                     Read the source
@@ -330,7 +335,10 @@ cp .env.example .env
                   </ul>
                 </CardBody>
                 <div className="p-4 pt-0 sm:p-5 sm:pt-0">
-                  <a href="mailto:hello@mwhassan.com?subject=RAG%20in%20the%20Box%20setup" className="block">
+                  <a
+                    href="mailto:hello@mwhassan.com?subject=RAG%20in%20the%20Box%20setup"
+                    className="block"
+                  >
                     <Button className="w-full">Ask me to set it up</Button>
                   </a>
                   <p className="mt-3 text-center text-[0.75rem] text-faint">

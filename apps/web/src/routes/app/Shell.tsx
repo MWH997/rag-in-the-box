@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAppMode } from "@/hooks/use-app-mode";
 import { api } from "@/lib/api";
+import { onTierChange } from "@/lib/events";
 import { signOut, useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +51,10 @@ export function AppShell() {
       .then((me) => setTier(me.tier))
       .catch(() => setTier(null));
   }, [location.pathname]);
+
+  // The badge follows a change made on the settings screen without waiting for
+  // the next navigation.
+  useEffect(() => onTierChange(setTier), []);
 
   if (isPending || (!session && mode !== "demo")) {
     return (

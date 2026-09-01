@@ -336,7 +336,10 @@ export function chunkMarkdown(
  * Splits markdown into display segments for the side-by-side reader.
  * Segments are cut on line boundaries so rendered markdown stays valid.
  */
-export function segmentMarkdown(markdown: string, maxChars = 12_000): {
+export function segmentMarkdown(
+  markdown: string,
+  maxChars = 12_000,
+): {
   seq: number;
   charStart: number;
   markdown: string;

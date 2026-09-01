@@ -232,7 +232,8 @@ export function neuronsForChat(
   completionTokens: number,
 ): number {
   return (
-    (promptTokens * model.neuronsPerMillionInput + completionTokens * model.neuronsPerMillionOutput) /
+    (promptTokens * model.neuronsPerMillionInput +
+      completionTokens * model.neuronsPerMillionOutput) /
     1_000_000
   );
 }

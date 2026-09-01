@@ -33,11 +33,7 @@ export function documentIdOfChunk(id: string): string {
   return cut === -1 ? id : id.slice(0, cut);
 }
 
-async function loadOwnedDocument(
-  c: Context<AppEnv>,
-  documentId: string,
-  writable: boolean,
-) {
+async function loadOwnedDocument(c: Context<AppEnv>, documentId: string, writable: boolean) {
   const db = c.get("db");
   const tenant = c.get("tenant");
   const scope = writable ? [tenant.tenantId] : tenant.readTenantIds;

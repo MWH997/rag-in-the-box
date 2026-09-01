@@ -16,7 +16,9 @@ const baseUrl = baseUrlArg ?? "http://localhost:8787";
 const adminToken = process.env.ADMIN_TOKEN;
 
 if (!email || !orgName) {
-  console.error("Usage: ADMIN_TOKEN=<token> node scripts/provision-tenant.ts <email> <orgName> [baseUrl]");
+  console.error(
+    "Usage: ADMIN_TOKEN=<token> node scripts/provision-tenant.ts <email> <orgName> [baseUrl]",
+  );
   process.exit(1);
 }
 

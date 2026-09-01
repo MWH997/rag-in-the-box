@@ -9,6 +9,7 @@ import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/compon
 import { Label, Select, Textarea } from "@/components/ui/field";
 import { TierSwitch } from "@/components/ui/tier-switch";
 import { api, ApiError, type SettingsResponse } from "@/lib/api";
+import { announceTierChange } from "@/lib/events";
 import { formatBytes } from "@/lib/utils";
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -39,6 +40,7 @@ export function Settings() {
       const response = await api.updateSettings(patch);
       setData(response);
       setPrompt(response.settings.systemPrompt);
+      announceTierChange(response.settings.tier);
       toast.success("Saved.");
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "That could not be saved.");
@@ -128,8 +130,12 @@ export function Settings() {
                   value: String(settings.limits.ingestBatchSize),
                 },
                 {
-                  term: "Server side parsing",
-                  value: settings.limits.serverSideParsing ? "On" : "Browser only",
+                  term: "Parsing",
+                  value: settings.limits.serverSideParsing ? "Server" : "Browser",
+                },
+                {
+                  term: "Scanned documents",
+                  value: settings.limits.ocrFallback ? "Yes" : "No",
                 },
               ].map((item) => (
                 <div key={item.term} className="flex min-w-0 items-baseline justify-between gap-3">
@@ -146,8 +152,8 @@ export function Settings() {
           <CardHeader className="border-b border-line">
             <CardTitle>Models</CardTitle>
             <CardDescription>
-              The index holds {catalogue.indexDimensions}-dimension vectors, so only models that
-              can fill that shape are offered.
+              The index holds {catalogue.indexDimensions}-dimension vectors, so only models that can
+              fill that shape are offered.
             </CardDescription>
           </CardHeader>
           <CardBody className="space-y-5 pt-4 sm:pt-5">
@@ -233,7 +239,12 @@ export function Settings() {
                   Some documents were embedded with a different model. Until they are re-indexed,
                   their passages sit in a different vector space and will not be retrieved reliably.
                 </p>
-                <Button size="sm" variant="secondary" disabled={reindexing} onClick={() => void reindex()}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={reindexing}
+                  onClick={() => void reindex()}
+                >
                   {reindexing ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                   ) : (

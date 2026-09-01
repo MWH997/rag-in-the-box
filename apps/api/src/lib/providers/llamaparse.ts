@@ -23,11 +23,7 @@ export type LlamaParseStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | 
 function requireKey(env: Env): string {
   const key = env.LLAMA_CLOUD_API_KEY;
   if (!key) {
-    throw new ProviderError(
-      "LLAMA_CLOUD_API_KEY is not configured",
-      "llamaparse_missing_key",
-      400,
-    );
+    throw new ProviderError("LLAMA_CLOUD_API_KEY is not configured", "llamaparse_missing_key", 400);
   }
   return key;
 }

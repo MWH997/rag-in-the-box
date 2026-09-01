@@ -63,12 +63,15 @@ function streamWorkersAi(env: Env, options: ChatStreamOptions): ChatStreamResult
   async function* iterate() {
     let raw: unknown;
     try {
-      raw = await env.AI.run(options.model as Parameters<Ai["run"]>[0], {
-        messages: options.messages,
-        stream: true,
-        max_tokens: options.maxTokens,
-        temperature: options.temperature,
-      } as never);
+      raw = await env.AI.run(
+        options.model as Parameters<Ai["run"]>[0],
+        {
+          messages: options.messages,
+          stream: true,
+          max_tokens: options.maxTokens,
+          temperature: options.temperature,
+        } as never,
+      );
     } catch (cause) {
       throw new ProviderError(
         `Workers AI chat call failed: ${cause instanceof Error ? cause.message : String(cause)}`,

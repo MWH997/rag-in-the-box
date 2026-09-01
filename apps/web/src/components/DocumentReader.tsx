@@ -44,9 +44,7 @@ export function DocumentReader({
       // Where this passage sits in the document, used to break ties when the
       // same words appear in two overlapping passages.
       const lastSegment = content.segments.at(-1);
-      const totalChars = lastSegment
-        ? lastSegment.charStart + lastSegment.markdown.length
-        : 0;
+      const totalChars = lastSegment ? lastSegment.charStart + lastSegment.markdown.length : 0;
       const hint = totalChars > 0 ? activeCitation.charStart / totalChars : null;
 
       const anchor = highlightPassage(body, activeCitation.snippet, hint);
@@ -83,7 +81,10 @@ export function DocumentReader({
         )}
       </header>
 
-      <div ref={scrollRef} className="scroll-area min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div
+        ref={scrollRef}
+        className="scroll-area min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
         {loading && (
           <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

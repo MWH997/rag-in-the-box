@@ -22,7 +22,9 @@ function describe(element) {
 }
 
 function isScrollable(style) {
-  return ["auto", "scroll"].includes(style.overflowX) || ["auto", "scroll"].includes(style.overflowY);
+  return (
+    ["auto", "scroll"].includes(style.overflowX) || ["auto", "scroll"].includes(style.overflowY)
+  );
 }
 
 /**
@@ -43,7 +45,8 @@ function insideHorizontalScroller(element) {
 }
 
 function isVisible(element, style) {
-  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0")
+    return false;
   const rect = element.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
 }
@@ -92,7 +95,11 @@ window.__ragAudit = function audit(options = {}) {
     // sits inside something built to scroll sideways.
     const scrollerAncestor = insideHorizontalScroller(element);
     if (!scrollerAncestor && rect.right - viewportWidth > tolerance && style.position !== "fixed") {
-      add("outside-viewport", element, `right edge at ${Math.round(rect.right)}px, viewport is ${viewportWidth}px`);
+      add(
+        "outside-viewport",
+        element,
+        `right edge at ${Math.round(rect.right)}px, viewport is ${viewportWidth}px`,
+      );
     }
     if (!scrollerAncestor && rect.left < -tolerance && style.position !== "fixed") {
       add("outside-viewport", element, `left edge at ${Math.round(rect.left)}px`);
@@ -111,7 +118,11 @@ window.__ragAudit = function audit(options = {}) {
       element.clientWidth > 0
     ) {
       const hardClip = style.overflowX === "hidden";
-      add(hardClip ? "text-clipped" : "content-overflow", element, `content is ${contentOverflow}px wider than the box`);
+      add(
+        hardClip ? "text-clipped" : "content-overflow",
+        element,
+        `content is ${contentOverflow}px wider than the box`,
+      );
     }
 
     // 4. A control whose label is cut off.
@@ -122,7 +133,11 @@ window.__ragAudit = function audit(options = {}) {
         style.overflowX === "hidden" &&
         style.textOverflow !== "ellipsis"
       ) {
-        add("control-label-clipped", element, `label is ${element.scrollWidth - element.clientWidth}px wider than the control`);
+        add(
+          "control-label-clipped",
+          element,
+          `label is ${element.scrollWidth - element.clientWidth}px wider than the control`,
+        );
       }
       // WCAG 2.5.8 exempts a link sitting inside a sentence, since shrinking
       // the target is the price of it being part of running text. It also
@@ -132,12 +147,12 @@ window.__ragAudit = function audit(options = {}) {
       const after = getComputedStyle(element, "::after");
       const pseudoHeight = Number.parseFloat(after.height) || 0;
       const pseudoWidth = Number.parseFloat(after.width) || 0;
-      const effectiveHeight = Math.max(rect.height, after.position === "absolute" ? pseudoHeight : 0);
+      const effectiveHeight = Math.max(
+        rect.height,
+        after.position === "absolute" ? pseudoHeight : 0,
+      );
       const effectiveWidth = Math.max(rect.width, after.position === "absolute" ? pseudoWidth : 0);
-      if (
-        !inlineInProse &&
-        (effectiveHeight < minTouchTarget || effectiveWidth < minTouchTarget)
-      ) {
+      if (!inlineInProse && (effectiveHeight < minTouchTarget || effectiveWidth < minTouchTarget)) {
         add(
           "small-target",
           element,
@@ -155,7 +170,11 @@ window.__ragAudit = function audit(options = {}) {
       style.overflowY === "hidden" &&
       !style.webkitLineClamp.match(/^\d+$/)
     ) {
-      add("text-vertically-clipped", element, `content is ${element.scrollHeight - element.clientHeight}px taller than the box`);
+      add(
+        "text-vertically-clipped",
+        element,
+        `content is ${element.scrollHeight - element.clientHeight}px taller than the box`,
+      );
     }
   }
 
