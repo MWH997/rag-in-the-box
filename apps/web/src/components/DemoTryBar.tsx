@@ -123,11 +123,13 @@ export function DemoTryBar({
                 Try it on your own file. One document up to {formatBytes(status.maxUploadBytes)},
                 deleted after {status.retentionHours} hours.
               </>
-            ) : (
+            ) : status.hasOwnDocuments ? (
               <>
-                You have used your upload for today. Anything you added is deleted after{" "}
-                {status.retentionHours} hours.
+                Your document is here until it is deleted, {status.retentionHours} hours after you
+                added it. Export it to keep it.
               </>
+            ) : (
+              <>You have used your upload for today. It resets at midnight UTC.</>
             )}
           </p>
 

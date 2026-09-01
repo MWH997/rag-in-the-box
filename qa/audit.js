@@ -52,6 +52,37 @@ function isVisible(element, style) {
 }
 
 /**
+ * How much of an element a scrolling ancestor is currently hiding.
+ *
+ * getBoundingClientRect reports where a box would be, not where it can be seen.
+ * Content scrolled past the end of a scroll container still reports a position
+ * beyond that container, which reads as an overlap with whatever sits below.
+ * That is not a layout fault: the reader scrolls and it comes into view.
+ *
+ * Returns the visible rectangle, or null when the element is entirely clipped.
+ */
+function visibleRect(element) {
+  let rect = element.getBoundingClientRect();
+  let parent = element.parentElement;
+  while (parent && parent !== document.documentElement) {
+    const style = getComputedStyle(parent);
+    const clipsY = ["auto", "scroll", "hidden"].includes(style.overflowY);
+    const clipsX = ["auto", "scroll", "hidden"].includes(style.overflowX);
+    if (clipsY || clipsX) {
+      const bounds = parent.getBoundingClientRect();
+      const top = clipsY ? Math.max(rect.top, bounds.top) : rect.top;
+      const bottom = clipsY ? Math.min(rect.bottom, bounds.bottom) : rect.bottom;
+      const left = clipsX ? Math.max(rect.left, bounds.left) : rect.left;
+      const right = clipsX ? Math.min(rect.right, bounds.right) : rect.right;
+      if (bottom - top <= 0 || right - left <= 0) return null;
+      rect = { top, bottom, left, right, width: right - left, height: bottom - top };
+    }
+    parent = parent.parentElement;
+  }
+  return rect;
+}
+
+/**
  * True for content deliberately hidden from sight but kept for assistive
  * technology: a one pixel clipped box, or a file input behind a styled button.
  * Its measurements say nothing about the visible layout.
@@ -193,8 +224,11 @@ window.__ragAudit = function audit(options = {}) {
       const a = interactives[i];
       const b = interactives[j];
       if (a.contains(b) || b.contains(a)) continue;
-      const ra = a.getBoundingClientRect();
-      const rb = b.getBoundingClientRect();
+      // Measured after clipping, so content merely scrolled out of view is not
+      // reported as sitting on top of whatever the scroller sits above.
+      const ra = visibleRect(a);
+      const rb = visibleRect(b);
+      if (!ra || !rb) continue;
       const overlapX = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
       const overlapY = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
       if (overlapX > 4 && overlapY > 4) {

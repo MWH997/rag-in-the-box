@@ -61,8 +61,17 @@ export function Demo() {
 
   const quotaBlocked = status ? !status.quota.allowed : false;
 
+  // Retrieval is scoped to the document on screen. Without this a visitor who
+  // uploads their own file gets an answer built mostly from the curated one,
+  // which is the opposite of what they came to find out, and the citations
+  // would point into a document the reader pane is not showing.
   const handleSend = (question: string) => {
-    void workspace.send(question, { onQuotaError: refreshStatus }).then(refreshStatus);
+    void workspace
+      .send(question, {
+        documentIds: workspace.selectedId ? [workspace.selectedId] : undefined,
+        onQuotaError: refreshStatus,
+      })
+      .then(refreshStatus);
   };
 
   return (
