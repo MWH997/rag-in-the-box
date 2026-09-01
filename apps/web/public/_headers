@@ -1,0 +1,18 @@
+# Response headers for the hosted interface, applied by Cloudflare Pages.
+#
+# The connect-src list is written at build time by scripts/deploy.sh, because
+# the API lives on its own origin and a policy that names the wrong one breaks
+# every request while looking correct.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' API_ORIGIN_PLACEHOLDER; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# Hashed asset names change whenever the contents change, so they can be held
+# for a year. index.html must not be, or a deployment reaches nobody.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

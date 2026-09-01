@@ -375,6 +375,20 @@ if [ "$SKIP_WEB" = false ]; then
     run $WRANGLER pages project create "$PAGES_PROJECT" --production-branch main
     ok "created Pages project $PAGES_PROJECT"
   fi
+  # The content security policy has to name the API's own origin, which is only
+  # known here. A policy naming the wrong one refuses every request from the
+  # interface while looking perfectly well formed.
+  if [ -f dist/_headers ]; then
+    if [ "$DRY_RUN" = true ]; then
+      skip "would point the content security policy at $API_ORIGIN"
+    else
+      TMP_HEADERS=$(mktemp)
+      sed "s#API_ORIGIN_PLACEHOLDER#$API_ORIGIN#" dist/_headers > "$TMP_HEADERS"
+      mv "$TMP_HEADERS" dist/_headers
+      ok "content security policy allows $API_ORIGIN"
+    fi
+  fi
+
   run $WRANGLER pages deploy dist --project-name "$PAGES_PROJECT" --branch main --commit-dirty=true
   ok "interface deployed"
 
@@ -390,20 +404,31 @@ if [ "$SKIP_WEB" = false ]; then
       skip "no API token, attach $WEB_HOST in the dashboard instead"
     else
       DOMAIN_API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$PAGES_PROJECT/domains"
-      # 409 means it is already attached, which is success on a repeat run.
-      DOMAIN_STATUS="$(curl -s -o /tmp/rib-domain.json -w '%{http_code}' -X POST "$DOMAIN_API" \
-        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-        -H "Content-Type: application/json" \
-        --data "{\"name\":\"$WEB_HOST\"}" || echo 000)"
-      case "$DOMAIN_STATUS" in
-        200 | 201) ok "attached $WEB_HOST to $PAGES_PROJECT" ;;
-        409) skip "$WEB_HOST is already attached" ;;
-        *)
-          warn "could not attach $WEB_HOST (HTTP $DOMAIN_STATUS). Add it in the dashboard under Pages, $PAGES_PROJECT, Custom domains."
-          [ -s /tmp/rib-domain.json ] && printf '  %s%s%s\n' "$DIM" "$(head -c 200 /tmp/rib-domain.json)" "$RESET"
-          ;;
-      esac
-      rm -f /tmp/rib-domain.json
+
+      # Asked first rather than attempted and interpreted. A repeat attach
+      # answers 400 with its own error code, which is indistinguishable at a
+      # glance from a real failure and made a successful deployment look broken.
+      EXISTING="$(curl -s "$DOMAIN_API" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")"
+      if printf '%s' "$EXISTING" | grep -q "\"name\": *\"$WEB_HOST\""; then
+        if printf '%s' "$EXISTING" | grep -q '"status": *"pending"'; then
+          skip "$WEB_HOST is attached and waiting for its DNS record"
+        else
+          skip "$WEB_HOST is already attached"
+        fi
+      else
+        DOMAIN_STATUS="$(curl -s -o /tmp/rib-domain.json -w '%{http_code}' -X POST "$DOMAIN_API" \
+          -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+          -H "Content-Type: application/json" \
+          --data "{\"name\":\"$WEB_HOST\"}" || echo 000)"
+        case "$DOMAIN_STATUS" in
+          200 | 201) ok "attached $WEB_HOST to $PAGES_PROJECT" ;;
+          *)
+            warn "could not attach $WEB_HOST (HTTP $DOMAIN_STATUS). Add it in the dashboard under Pages, $PAGES_PROJECT, Custom domains."
+            [ -s /tmp/rib-domain.json ] && printf '  %s%s%s\n' "$DIM" "$(head -c 200 /tmp/rib-domain.json)" "$RESET"
+            ;;
+        esac
+        rm -f /tmp/rib-domain.json
+      fi
     fi
   fi
 fi
