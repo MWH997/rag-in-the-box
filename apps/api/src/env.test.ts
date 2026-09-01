@@ -97,6 +97,23 @@ describe("the environment templates", () => {
     ).toEqual([]);
   });
 
+  it("offer the same infrastructure and provider settings in both files", () => {
+    // The demo is a deployment like any other: same Cloudflare account, same
+    // bindings, same providers. Only the DEMO_ prefixed settings are peculiar
+    // to it. Checking each key against "either file" would let one template
+    // quietly fall behind the other, which is how OLLAMA_BASE_URL ended up in
+    // one and not the other.
+    const shared = [...selfHost].filter((key) => !key.startsWith("DEMO_"));
+    const missingFromDemo = shared.filter((key) => !demo.has(key));
+
+    expect(
+      missingFromDemo.sort(),
+      `.env.example offers these but .env.demo.example does not: ` +
+        `${missingFromDemo.join(", ")}. The demo deploys to the same platform, so ` +
+        `anything that is not DEMO_ prefixed belongs in both.`,
+    ).toEqual([]);
+  });
+
   it("agree on the Cloudflare credentials both deployments need", () => {
     for (const key of ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"]) {
       expect(selfHost.has(key), `.env.example is missing ${key}`).toBe(true);
