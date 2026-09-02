@@ -362,13 +362,20 @@ if [ "$SKIP_WEB" = false ]; then
   cd "$ROOT"
   step "Building the interface"
   run npm run build:shared
-  # VITE_SITE_URL fills the absolute addresses in the share metadata. Until a
-  # custom domain's DNS record exists the site only answers at its pages.dev
-  # address, and a card pointing at the domain would fetch its image from a host
-  # that is not serving yet, so the reachable address wins while it is the only
-  # one that works.
-  SITE_URL="${ALLOWED_ORIGIN_EXTRA:-$WEB_ORIGIN}"
-  SITE_URL="${SITE_URL%%,*}"
+  # VITE_SITE_URL fills the absolute addresses in the share metadata, so it has
+  # to name a host that is actually answering. WEB_ORIGIN is the address the
+  # site is meant to live at and wins whenever it resolves. On a first deploy it
+  # usually does not yet, because the DNS record is added by hand afterwards, so
+  # the fallback is the pages.dev address the deploy always creates. Once the
+  # record exists the next deploy picks the real domain up on its own.
+  SITE_URL="${WEB_ORIGIN%%,*}"
+  if ! curl -sI --max-time 6 -o /dev/null "$SITE_URL" 2>/dev/null; then
+    FALLBACK="${ALLOWED_ORIGIN_EXTRA%%,*}"
+    if [ -n "$FALLBACK" ]; then
+      warn "$SITE_URL is not answering yet, so the share metadata names $FALLBACK"
+      SITE_URL="$FALLBACK"
+    fi
+  fi
   VITE_API_URL="$API_ORIGIN" VITE_SITE_URL="$SITE_URL" run npm run build --workspace apps/web
   ok "share metadata points at $SITE_URL"
   ok "built against $API_ORIGIN"
