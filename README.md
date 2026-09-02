@@ -126,7 +126,7 @@ will do it for **$300, once**:
 - A walkthrough call, and two weeks of questions answered.
 
 If it cannot be made to work on your setup, you pay nothing.
-[hello@mwhassan.com](mailto:hello@mwhassan.com?subject=RAG%20in%20the%20Box%20setup)
+[devwahid5@gmail.com](mailto:devwahid5@gmail.com?subject=RAG%20in%20the%20Box%20setup)
 
 ## Repository layout
 

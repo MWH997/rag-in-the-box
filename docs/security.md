@@ -2,7 +2,7 @@
 
 ## Reporting something
 
-Email [hello@mwhassan.com](mailto:hello@mwhassan.com) rather than opening a
+Email [devwahid5@gmail.com](mailto:devwahid5@gmail.com) rather than opening a
 public issue. Include what you did and what happened. I will reply.
 
 ## What the design relies on
