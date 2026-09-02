@@ -173,6 +173,41 @@ in the Worker.
 
 After adding any key, deploy again and pick it on the settings screen.
 
+## Deploying from GitHub Actions
+
+The repository carries a `Deploy demo` workflow. It deploys to **your** Cloudflare
+account using **your** credentials, and there are none in the repository. Nothing
+is shared, and a fresh clone cannot deploy anything until you supply your own.
+
+Set them on your own copy, under Settings, then Secrets and variables, then
+Actions. Secrets there are encrypted, are never shown again after you save them,
+and are not given to workflows started by a pull request from a fork.
+
+Secrets, the values that must not be printed:
+
+```
+CLOUDFLARE_API_TOKEN  CLOUDFLARE_ACCOUNT_ID  BETTER_AUTH_SECRET
+ADMIN_TOKEN           DEMO_COOKIE_SECRET     OPENAI_API_KEY
+DEEPSEEK_API_KEY      LLAMA_CLOUD_API_KEY
+```
+
+Variables, the values that are safe to read in a log, are the rest of your
+`.env`: the origins, the resource names, the tier and the limits. The workflow
+lists every one it reads, and the first step fails with the name of anything
+missing rather than deploying half a configuration.
+
+The three provider keys are only needed if you use those providers. See
+[Optional providers](#optional-providers) above.
+
+The workflow runs by hand only. There is no trigger on push, so merging
+something never spends your Cloudflare allowance or changes a running site on
+its own. Open the Actions tab, choose `Deploy demo`, and type `deploy` to
+confirm.
+
+You do not have to use it. `./scripts/deploy.sh` does the same work from your
+own machine, reading the same names from `.env`, and never sends a credential
+anywhere except Cloudflare.
+
 ## Keeping it up to date
 
 ```bash

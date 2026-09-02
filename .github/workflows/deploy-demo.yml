@@ -2,6 +2,14 @@ name: Deploy demo
 
 # Publishes the hosted demo. Started by hand only, so a push to main never
 # spends Cloudflare quota or changes a live site on its own.
+#
+# There are no credentials in this repository, and this workflow will not run
+# until you put your own on your own copy of it. Every secrets.* and vars.*
+# below is read from Settings, then Secrets and variables, then Actions, on
+# whichever repository is running the workflow. It deploys to your Cloudflare
+# account, not to anyone else's. docs/hosting.md lists which names go in which
+# of the two, and scripts/deploy.sh does the same job from a laptop if you
+# would rather not put credentials on GitHub at all.
 on:
   workflow_dispatch:
     inputs:
