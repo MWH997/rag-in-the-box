@@ -29,12 +29,22 @@ interface Page {
 }
 
 /** The order the pages are meant to be read in, rather than alphabetical. */
-const ORDER = ["architecture", "api", "free-tier", "hosting", "local-models", "demo", "security"];
+const ORDER = [
+  "architecture",
+  "api",
+  "free-tier",
+  "providers",
+  "hosting",
+  "local-models",
+  "demo",
+  "security",
+];
 
 const SUMMARIES: Record<string, string> = {
   architecture: "Why the work is split the way it is, and what each half does.",
   api: "Every route, what identifies a caller, and the error codes.",
   "free-tier": "What the free plan actually allows, and what happens at each limit.",
+  providers: "OpenAI, DeepSeek, LlamaIndex and Ollama, and when each is worth adding.",
   hosting: "Getting your own copy running, start to finish.",
   "local-models": "Real models on your own machine, with no account anywhere.",
   demo: "How the public demo differs from a normal install.",

@@ -104,13 +104,42 @@ row consumption rather than estimating it, so you can see the line coming.
 Where each number comes from, and what happens when you cross it, is in
 [docs/free-tier.md](docs/free-tier.md).
 
+## Other model providers
+
+Nothing else is required. With no provider keys at all, Workers AI answers
+questions and embeds passages, and every free tier figure above is measured
+against exactly that.
+
+Four more are supported, and each one adds a choice rather than replacing what
+already works:
+
+| Provider   | What it adds                                                                            | Key                   | Billed by                               |
+| ---------- | --------------------------------------------------------------------------------------- | --------------------- | --------------------------------------- |
+| OpenAI     | answers, and the only embedding models that fit the default index without recreating it | `OPENAI_API_KEY`      | OpenAI                                  |
+| DeepSeek   | answers, cheaper per token than the OpenAI models                                       | `DEEPSEEK_API_KEY`    | DeepSeek                                |
+| LlamaIndex | reads scanned pages, which nothing else here can                                        | `LLAMA_CLOUD_API_KEY` | LlamaCloud, free within a monthly grant |
+| Ollama     | answers and embeddings on your own machine                                              | `OLLAMA_BASE_URL`     | nobody                                  |
+
+Add a key, run `./scripts/check-credentials.sh` to confirm it works before
+spending a deployment on it, deploy, then pick the model on the settings screen.
+Until you pick it, nothing has changed and the key costs nothing. A provider
+whose key is absent is hidden rather than offered and then refused.
+
+What each one costs, when it is worth adding, and the two things that catch
+people out are in [docs/providers.md](docs/providers.md).
+
+The public demo carries a toggle between the two free platforms, Cloudflare and
+LlamaIndex, so a visitor can see what a different reader does to their own
+document before installing anything. A scanned page is the case that separates
+them: the Cloudflare path cannot read one at all, because there is no text in
+the file to extract.
+
 ## Paid tier
 
 One control in the settings screen switches a workspace to the paid tier. It
 raises the limits, lets the Worker parse files itself, turns on optical
 character recognition for scanned documents through LlamaParse, and offers the
-models that Cloudflare requires a billing method for. Any provider key you add
-appears as a choice rather than replacing what is already there.
+models that Cloudflare requires a billing method for.
 
 The Cloudflare paid plan starts at five dollars a month.
 
@@ -137,8 +166,8 @@ packages/shared Contracts and the chunker, shared by both.
 scripts         Deployment and demo seeding.
 qa              Layout, accessibility and contract audits, and the runner
                 that starts everything and fails the build on a finding.
-docs            Architecture, the API, hosting, free tier, local models,
-                the demo and security. The site renders these same files.
+docs            Architecture, the API, free tier, providers, hosting, local
+                models, the demo and security. The site renders these files.
 ```
 
 ## Commands

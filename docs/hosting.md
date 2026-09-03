@@ -156,22 +156,25 @@ never transmitted to you or known by you. The link works once.
 
 ## Optional providers
 
-Each of these is optional. Adding one makes it available as a choice; it never
-replaces what is already working.
+Nothing here is required. A deployment with no provider keys works: Workers AI
+answers and embeds, which is what every free tier figure in this project is
+measured against. Each key adds a choice and never replaces what already works.
 
-**OpenAI.** Better answers and an alternative embedding model, billed by OpenAI.
-Add `OPENAI_API_KEY` to `.env` and deploy again.
+| Provider   | What it adds                                                                                | Key                   | Billed by                               |
+| ---------- | ------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------- |
+| OpenAI     | answers, and the only embedding models that fit a 384-dimension index without recreating it | `OPENAI_API_KEY`      | OpenAI                                  |
+| DeepSeek   | answers, cheaper per token than the OpenAI models                                           | `DEEPSEEK_API_KEY`    | DeepSeek                                |
+| LlamaIndex | reads scanned pages, which nothing else here can                                            | `LLAMA_CLOUD_API_KEY` | LlamaCloud, free within a monthly grant |
+| Ollama     | answers and embeddings on your own machine                                                  | `OLLAMA_BASE_URL`     | nobody                                  |
 
-**DeepSeek.** Add `DEEPSEEK_API_KEY`. Note that DeepSeek models are also on
-Workers AI without a DeepSeek account, though Cloudflare requires a billing
-method for those.
+Add the key to `.env`, confirm it with `./scripts/check-credentials.sh`, deploy
+again, then pick the model on the settings screen. Until you pick it, nothing
+has changed and the key costs nothing.
 
-**LlamaParse.** Reads scanned documents that have no extractable text. Add
-`LLAMA_CLOUD_API_KEY`. The free plan gives 10,000 credits a month, about 3,300
-pages at the cost effective tier. Only reachable on the paid tier, since it runs
-in the Worker.
-
-After adding any key, deploy again and pick it on the settings screen.
+Two things catch people out, and both are covered in
+[providers.md](providers.md) along with what each provider costs and when it is
+worth adding: LlamaCloud keys are region specific, and changing the embedding
+model makes every stored vector stale until you re-index.
 
 ## Deploying from GitHub Actions
 
@@ -197,7 +200,7 @@ lists every one it reads, and the first step fails with the name of anything
 missing rather than deploying half a configuration.
 
 The three provider keys are only needed if you use those providers. See
-[Optional providers](#optional-providers) above.
+[providers.md](providers.md).
 
 The workflow runs by hand only. There is no trigger on push, so merging
 something never spends your Cloudflare allowance or changes a running site on
@@ -241,8 +244,15 @@ Fix them and deploy again.
 set too high for the free plan. The default of 100000 fits; 600000 needs the
 paid plan.
 
-**Uploads fail on a scanned PDF.** There is no text in it to extract. That needs
-the paid tier and a LlamaParse key.
+**Uploads fail on a scanned PDF.** There is no text in it to extract. Reading it
+needs optical character recognition, which means the paid tier and a
+`LLAMA_CLOUD_API_KEY`. See [providers.md](providers.md).
+
+**A LlamaCloud key is rejected although it is correct.** Its keys are region
+specific. A key made in the EU console fails against the North American host.
+Set `LLAMA_CLOUD_BASE_URL=https://api.cloud.eu.llamaindex.ai` and try again.
+`./scripts/check-credentials.sh` prints the host it tried, which is what tells a
+wrong region apart from a wrong key.
 
 **Answers are poor after changing the embedding model.** The settings screen
 will be showing a re-index prompt. Old passages are in a different vector space

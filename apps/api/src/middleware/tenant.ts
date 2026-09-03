@@ -86,6 +86,17 @@ export function demoLimits(env: Env) {
      */
     maxUploadBytes: envInt(env.DEMO_MAX_UPLOAD_BYTES, 2 * 1024 * 1024),
     retentionHours: envInt(env.DEMO_RETENTION_HOURS, 3),
+    /**
+     * Whether LlamaIndex is offered as the second way to read a file.
+     *
+     * Both conditions are required. The flag is the operator's decision and the
+     * key is whether it could work at all, and offering a choice that fails is
+     * worse than not offering it.
+     */
+    llamaparseEnabled:
+      envBool(env.DEMO_LLAMAPARSE_ENABLED, false) && Boolean(env.LLAMA_CLOUD_API_KEY),
+    visitorParses: envInt(env.DEMO_VISITOR_PARSES_PER_DAY, 1),
+    globalParses: envInt(env.DEMO_GLOBAL_PARSES_PER_DAY, 20),
   };
 }
 
@@ -178,25 +189,27 @@ export const withTenant = createMiddleware<AppEnv>(async (c, next) => {
 export function quotaChecksFor(
   env: Env,
   tenant: TenantContext,
-  metric: "chat" | "upload",
+  metric: "chat" | "upload" | "parse",
   tenantLimit: number,
 ): QuotaCheck[] {
   if (tenant.mode !== "demo") {
     return [{ scope: "tenant", key: tenant.tenantId, metric, limit: tenantLimit }];
   }
   const limits = demoLimits(env);
+  const perVisitor =
+    metric === "chat"
+      ? limits.visitorChats
+      : metric === "upload"
+        ? limits.visitorUploads
+        : limits.visitorParses;
+  const perDeployment =
+    metric === "chat"
+      ? limits.globalChats
+      : metric === "upload"
+        ? limits.globalUploads
+        : limits.globalParses;
   return [
-    {
-      scope: "visitor",
-      key: tenant.quotaKeys.visitor,
-      metric,
-      limit: metric === "chat" ? limits.visitorChats : limits.visitorUploads,
-    },
-    {
-      scope: "global",
-      key: tenant.quotaKeys.global,
-      metric,
-      limit: metric === "chat" ? limits.globalChats : limits.globalUploads,
-    },
+    { scope: "visitor", key: tenant.quotaKeys.visitor, metric, limit: perVisitor },
+    { scope: "global", key: tenant.quotaKeys.global, metric, limit: perDeployment },
   ];
 }

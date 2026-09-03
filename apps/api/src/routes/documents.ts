@@ -130,7 +130,17 @@ documentsRoute.post("/documents", async (c) => {
       );
     }
   }
-  if (body.extractor !== "browser" && !limits.serverSideParsing) {
+  // The demo's reader toggle is the one exception to the tier rule below. A
+  // document read by LlamaParse still arrives here as chunks the browser made,
+  // so it costs the Worker exactly what a browser-read document costs; what
+  // makes it a paid-tier feature elsewhere is the Worker doing the parsing,
+  // which on this path it does not.
+  const demoParsed =
+    tenant.mode === "demo" &&
+    body.extractor === "llamaparse" &&
+    demoLimits(c.env).llamaparseEnabled;
+
+  if (body.extractor !== "browser" && !limits.serverSideParsing && !demoParsed) {
     throw new HttpError(
       400,
       "server_parsing_disabled",

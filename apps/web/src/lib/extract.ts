@@ -141,7 +141,7 @@ export async function extract(
   if (extracted.markdown.trim().length === 0) {
     throw new Error(
       kind === "pdf"
-        ? "No text could be read from this PDF. It is most likely a scan, which needs optical character recognition on the paid tier."
+        ? "No text could be read from this PDF. It is most likely a scan. Switch the reader to LlamaIndex, which does optical character recognition, or use the paid tier on a self-hosted install."
         : "This file contained no readable text.",
     );
   }

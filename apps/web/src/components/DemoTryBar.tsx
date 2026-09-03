@@ -1,10 +1,11 @@
-import type { DemoStatusResponse } from "@rag/shared";
+import type { DemoReader, DemoStatusResponse } from "@rag/shared";
 import { Download, Loader2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { ReaderSwitch } from "@/components/ui/reader-switch";
 import { api, ApiError } from "@/lib/api";
 import { ACCEPTED_EXTENSIONS } from "@/lib/extract";
 import { ingestFile, type IngestProgress } from "@/lib/ingest";
@@ -12,6 +13,7 @@ import { formatBytes, formatDuration } from "@/lib/utils";
 
 const STAGE_LABEL: Record<IngestProgress["stage"], string> = {
   extracting: "Reading it in your browser",
+  parsing: "LlamaIndex is reading it",
   chunking: "Splitting it into passages",
   uploading: "Creating the document",
   embedding: "Embedding passages",
@@ -38,8 +40,14 @@ export function DemoTryBar({
 }) {
   const [progress, setProgress] = useState<IngestProgress | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [reader, setReader] = useState<DemoReader>("cloudflare");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // LlamaIndex has a budget of its own, so it can run out while uploads have
+  // not. Falling back to Cloudflare is better than refusing the upload: the
+  // visitor still gets an answer about their own document.
+  const llamaAvailable = status.readers.llamaindex && status.parsesRemaining > 0;
+  const effectiveReader: DemoReader = llamaAvailable ? reader : "cloudflare";
   const canUpload = status.uploadsEnabled && status.uploadsRemaining > 0 && !progress;
 
   const upload = async (file: File) => {
@@ -51,7 +59,7 @@ export function DemoTryBar({
       return;
     }
     try {
-      const result = await ingestFile(file, setProgress);
+      const result = await ingestFile(file, setProgress, effectiveReader);
       toast.success(
         `${file.name} is ready. ${result.chunks} passages, ${formatDuration(result.workerMs)} of server time. Ask it something.`,
       );
@@ -132,9 +140,30 @@ export function DemoTryBar({
             ) : (
               <>You have used your upload for today. It resets at midnight UTC.</>
             )}
+            {status.readers.llamaindex && status.uploadsRemaining > 0 && (
+              <>
+                {" "}
+                {llamaAvailable ? (
+                  effectiveReader === "llamaindex" ? (
+                    <>LlamaIndex will read it, so a scan works.</>
+                  ) : (
+                    <>Cloudflare reads it in this page. Switch to LlamaIndex for a scan.</>
+                  )
+                ) : (
+                  <>LlamaIndex is used up for today, so Cloudflare reads it.</>
+                )}
+              </>
+            )}
           </p>
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
+            {status.readers.llamaindex && status.uploadsEnabled && (
+              <ReaderSwitch
+                value={effectiveReader}
+                onChange={setReader}
+                disabled={!canUpload || !llamaAvailable}
+              />
+            )}
             {status.hasOwnDocuments && (
               <Button
                 variant="ghost"

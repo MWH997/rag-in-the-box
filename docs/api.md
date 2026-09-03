@@ -151,8 +151,33 @@ says so and names the embedding model instead of quietly omitting the field.
 ### `GET /api/demo/status`
 
 The visitor's remaining allowance, the deployment-wide allowance, which
-document is featured, whether uploads are on, and how long an upload survives.
-Reading it consumes nothing, so the banner can poll it.
+document is featured, whether uploads are on, how long an upload survives, and
+which reading platforms this demo can offer. Reading it consumes nothing, so the
+banner can poll it.
+
+### `POST /api/demo/parse`
+
+Hands one file to LlamaParse and returns a job id. Multipart, field `file`.
+Demo mode only, and refused unless `DEMO_LLAMAPARSE_ENABLED` is on and a
+LlamaCloud key is configured.
+
+Metered on its own `parse` counter rather than the upload one, because it spends
+LlamaCloud credits rather than Vectorize storage. A job LlamaCloud refuses gives
+the allowance back, so a provider outage does not consume a visitor's attempt.
+
+The job id is returned as `<id>.<signature>`, signed over both the id and the
+visitor it belongs to. The bare id is enough to read the markdown back, so an
+unsigned one would let anyone holding it read another visitor's document.
+
+### `GET /api/demo/parse/:jobId`
+
+Polls a job. Returns `parsing` while it runs, `completed` with the markdown once
+it finishes, and `failed` with a reason otherwise. A job id that does not verify
+against this visitor is answered as if it did not exist.
+
+The browser chunks the returned markdown and sends it through the ordinary
+`POST /api/documents` and ingest calls, so nothing after the reading differs
+from a file the browser extracted itself.
 
 ## Operator routes
 
@@ -170,16 +195,18 @@ knows it.
 Every failure is JSON with a stable `code`, so a caller can branch on the code
 rather than on the wording.
 
-| Code                     | Status | Means                                                      |
-| ------------------------ | ------ | ---------------------------------------------------------- |
-| `unauthenticated`        | 401    | No session, on a deployment that needs one                 |
-| `quota_exhausted`        | 429    | This caller's daily allowance is gone                      |
-| `quota_global_exhausted` | 429    | The deployment's shared allowance is gone                  |
-| `upload_too_large`       | 413    | Over the tier limit                                        |
-| `chunk_limit_reached`    | 409    | The workspace is at its passage allowance                  |
-| `d1_daily_limit`         | 503    | Cloudflare is refusing database queries until midnight UTC |
-| `invalid_request`        | 422    | The body did not match the schema                          |
-| `empty_answer`           | stream | The model finished without writing anything                |
+| Code                       | Status | Means                                                      |
+| -------------------------- | ------ | ---------------------------------------------------------- |
+| `unauthenticated`          | 401    | No session, on a deployment that needs one                 |
+| `quota_exhausted`          | 429    | This caller's daily allowance is gone                      |
+| `quota_global_exhausted`   | 429    | The deployment's shared allowance is gone                  |
+| `upload_too_large`         | 413    | Over the tier limit                                        |
+| `chunk_limit_reached`      | 409    | The workspace is at its passage allowance                  |
+| `d1_daily_limit`           | 503    | Cloudflare is refusing database queries until midnight UTC |
+| `invalid_request`          | 422    | The body did not match the schema                          |
+| `demo_llamaparse_disabled` | 403    | This demo is not offering the LlamaIndex reader            |
+| `parse_job_not_found`      | 404    | That parse job was not issued to this visitor              |
+| `empty_answer`             | stream | The model finished without writing anything                |
 
 `d1_daily_limit` is the one worth handling deliberately. It is not a fault in
 the request, and it clears on its own at midnight UTC.

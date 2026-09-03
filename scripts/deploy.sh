@@ -306,6 +306,11 @@ WEB_ORIGIN="${WEB_ORIGIN:-https://${PAGES_PROJECT}.pages.dev}"
     echo "DEMO_UPLOADS_ENABLED = \"${DEMO_UPLOADS_ENABLED:-true}\""
     echo "DEMO_MAX_UPLOAD_BYTES = \"${DEMO_MAX_UPLOAD_BYTES:-2097152}\""
     echo "DEMO_RETENTION_HOURS = \"${DEMO_RETENTION_HOURS:-3}\""
+    # The reader toggle. Off unless asked for, and inert without a LlamaCloud
+    # key, so a demo without one never offers a choice it cannot honour.
+    echo "DEMO_LLAMAPARSE_ENABLED = \"${DEMO_LLAMAPARSE_ENABLED:-false}\""
+    echo "DEMO_VISITOR_PARSES_PER_DAY = \"${DEMO_VISITOR_PARSES_PER_DAY:-1}\""
+    echo "DEMO_GLOBAL_PARSES_PER_DAY = \"${DEMO_GLOBAL_PARSES_PER_DAY:-20}\""
     echo
     # Without this the purge never runs and visitor uploads accumulate until
     # Vectorize storage, which does not reset daily, is permanently full.
