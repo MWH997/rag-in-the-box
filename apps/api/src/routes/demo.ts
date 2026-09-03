@@ -201,7 +201,19 @@ demoRoute.post("/demo/parse", async (c) => {
     );
   }
 
-  const form = await c.req.formData();
+  // formData() throws rather than returning empty when the request carries no
+  // multipart body at all, so a malformed request would leave here as a 500.
+  // What it actually is is a bad request, and it should say so.
+  let form: FormData;
+  try {
+    form = await c.req.formData();
+  } catch {
+    throw new HttpError(
+      400,
+      "no_file",
+      "Send the document as multipart form data in a field named file.",
+    );
+  }
   const file = form.get("file");
   if (!(file instanceof File)) {
     throw new HttpError(400, "no_file", "Attach the document in a form field named file.");
