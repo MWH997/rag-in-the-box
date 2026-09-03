@@ -47,6 +47,22 @@ export const EXTRACTORS = ["browser", "worker", "llamaparse"] as const;
 export const Extractor = z.enum(EXTRACTORS);
 export type Extractor = z.infer<typeof Extractor>;
 
+/**
+ * The two ways the demo can read a document, as a visitor chooses between them.
+ *
+ * These name platforms rather than code paths on purpose. "cloudflare" is the
+ * browser extractor feeding Workers AI, which is what the whole project is
+ * built around. "llamaindex" sends the file to LlamaParse instead and embeds
+ * the markdown it returns with the same Workers AI model, so the only thing the
+ * choice changes is who reads the file.
+ *
+ * The distinction is not cosmetic: the Cloudflare path cannot read a scan at
+ * all, because there is no text in the file to extract, and LlamaParse can.
+ */
+export const DEMO_READERS = ["cloudflare", "llamaindex"] as const;
+export const DemoReader = z.enum(DEMO_READERS);
+export type DemoReader = z.infer<typeof DemoReader>;
+
 /* -------------------------------------------------------------------------- */
 /* Documents                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -354,8 +370,44 @@ export const DemoStatusResponse = z.object({
   uploadsRemaining: z.number().int().nonnegative(),
   /** True when this visitor has something of their own worth exporting. */
   hasOwnDocuments: z.boolean(),
+  /**
+   * Which reading platforms this demo can actually offer.
+   *
+   * Cloudflare is always true, because the browser extractor needs nothing
+   * configured. LlamaIndex is true only when the deployment holds a LlamaCloud
+   * key and has not turned the path off, so the interface can hide a choice
+   * that would fail rather than offering it and apologising afterwards.
+   */
+  readers: z.object({
+    cloudflare: z.boolean(),
+    llamaindex: z.boolean(),
+  }),
+  /** LlamaParse jobs this visitor has left today. Its own budget, not the upload one. */
+  parsesRemaining: z.number().int().nonnegative(),
 });
 export type DemoStatusResponse = z.infer<typeof DemoStatusResponse>;
+
+/**
+ * A LlamaParse job, submitted and then polled.
+ *
+ * Parsing takes seconds, which is far longer than a Worker should hold a
+ * request open, so submitting and collecting are two calls. The Worker only
+ * ever forwards bytes and reads a status, so neither call costs meaningful
+ * processor time and both fit the free plan.
+ */
+export const DemoParseResponse = z.object({
+  jobId: z.string(),
+});
+export type DemoParseResponse = z.infer<typeof DemoParseResponse>;
+
+export const DemoParseStatusResponse = z.object({
+  status: z.enum(["parsing", "completed", "failed"]),
+  /** Present only once the status is "completed". */
+  markdown: z.string().nullable(),
+  /** Present only once the status is "failed". */
+  error: z.string().nullable(),
+});
+export type DemoParseStatusResponse = z.infer<typeof DemoParseStatusResponse>;
 
 /* -------------------------------------------------------------------------- */
 /* Session                                                                     */

@@ -74,6 +74,30 @@ export interface Env {
   DEMO_MAX_UPLOAD_BYTES?: string;
   /** Hours a visitor's upload survives before the scheduled purge removes it. */
   DEMO_RETENTION_HOURS?: string;
+  /**
+   * Whether a demo visitor may choose LlamaIndex to read their file.
+   *
+   * Off unless set, and inert without LLAMA_CLOUD_API_KEY, so the choice never
+   * appears on a deployment that cannot honour it. It is separate from the key
+   * because turning the path off should not mean deleting a working credential.
+   */
+  DEMO_LLAMAPARSE_ENABLED?: string;
+  /**
+   * LlamaParse jobs allowed per visitor and per day, deployment wide.
+   *
+   * A separate budget from the upload one because it is a separate scarce
+   * thing: uploads are bounded by Vectorize storage, which does not reset, and
+   * parses by the 10,000 LlamaCloud credits a month the free plan grants.
+   *
+   * The grant is what sets the number. At three credits a page on the
+   * cost_effective tier it buys about 3,300 pages a month, or 110 a day. A
+   * two megabyte upload is a handful of pages, so twenty parses a day of five
+   * pages each spends 300 credits a day and 9,000 a month, which fits with
+   * enough headroom for a heavier day. Raising this without redoing that
+   * arithmetic is how the demo starts failing halfway through a month.
+   */
+  DEMO_VISITOR_PARSES_PER_DAY?: string;
+  DEMO_GLOBAL_PARSES_PER_DAY?: string;
 }
 
 export interface Capabilities {

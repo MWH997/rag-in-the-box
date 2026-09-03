@@ -1,5 +1,7 @@
 import type {
   CreateDocumentRequest,
+  DemoParseResponse,
+  DemoParseStatusResponse,
   DemoStatusResponse,
   DocumentContentResponse,
   DocumentListResponse,
@@ -33,7 +35,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       credentials: "include",
       headers: {
-        ...(init?.body ? { "content-type": "application/json" } : {}),
+        // FormData carries its own content type, including a boundary the
+        // browser generates. Setting one here would replace it with a header
+        // the server cannot parse the body against.
+        ...(init?.body && !(init.body instanceof FormData)
+          ? { "content-type": "application/json" }
+          : {}),
         ...init?.headers,
       },
     });
@@ -119,6 +126,20 @@ export const api = {
     request<SettingsResponse>("/api/settings", { method: "PATCH", body: JSON.stringify(body) }),
   usage: () => request<UsageResponse>("/api/usage"),
   demoStatus: () => request<DemoStatusResponse>("/api/demo/status"),
+  /**
+   * Hands a file to LlamaIndex and polls until the markdown is ready.
+   *
+   * Two calls rather than one because parsing takes seconds and a Worker should
+   * not hold a request open that long. The job id that comes back is signed for
+   * this visitor, so it is only useful to the browser that submitted it.
+   */
+  demoParse: (file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    return request<DemoParseResponse>("/api/demo/parse", { method: "POST", body: form });
+  },
+  demoParseStatus: (jobId: string) =>
+    request<DemoParseStatusResponse>(`/api/demo/parse/${encodeURIComponent(jobId)}`),
   /**
    * The export as a blob, so the browser can hand it to the visitor as a file.
    *

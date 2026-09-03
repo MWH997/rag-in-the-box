@@ -13,7 +13,7 @@ installing anything.
 | --------------------- | ------------------ | ------------------------------------------ |
 | Accounts              | email and password | none                                       |
 | Workspace             | one per account    | one per browser, plus a shared curated one |
-| Settings              | editable           | fixed                                      |
+| Settings              | editable           | fixed, except which platform reads a file  |
 | Uploads               | unlimited          | one small file each, deleted after a while |
 | Daily limits          | your own           | per visitor and deployment wide            |
 | Provisioning endpoint | available          | refused                                    |
@@ -142,6 +142,78 @@ and deletes it is a worse advertisement than no demo.
 
 Set `DEMO_UPLOADS_ENABLED=false`. The curated document stays, the upload control
 disappears, and the API refuses uploads before consuming any allowance.
+
+## Choosing who reads the file
+
+Next to the upload control is a toggle between the two free platforms this demo
+runs on. It decides one thing: who turns the visitor's file into text.
+
+|                     | Cloudflare                       | LlamaIndex                     |
+| ------------------- | -------------------------------- | ------------------------------ |
+| Where the file goes | nowhere, it is read in the page  | LlamaCloud                     |
+| Reads a scan        | no                               | yes                            |
+| Page numbers        | kept, so a citation cites a page | not returned, headings instead |
+| Costs               | nothing                          | credits from a monthly grant   |
+| Who embeds it       | Workers AI                       | Workers AI                     |
+
+Cloudflare is the default and stays the default. It is the path the whole
+project is built around: the browser extracts the text, so the Worker never
+spends processor time on a PDF, which is what makes the free plan viable at all.
+
+LlamaIndex is there for the one case that path cannot handle. A scanned page has
+no text in it to extract, so the browser extractor correctly comes back with
+nothing, and before this toggle existed the visitor was told to go and install
+the paid tier to find out whether the product works. Now they can just try it.
+
+Everything after the reading is identical. The markdown is chunked in the
+browser either way, embedded by the same Workers AI model either way, and
+answered by the same model either way. That is deliberate: the toggle isolates
+one variable rather than swapping the product for a different one.
+
+### Turning it on
+
+```
+DEMO_LLAMAPARSE_ENABLED=true
+LLAMA_CLOUD_API_KEY=llx-...
+```
+
+Both are needed. Without the key the toggle never appears, so the interface
+cannot offer a choice this deployment could not honour. Keys are region
+specific; see [providers.md](providers.md) if a good key is being rejected.
+
+### Its budget, and where the numbers come from
+
+Parsing is metered separately from uploading, because the two spend different
+scarce things. An upload costs Vectorize storage, which does not reset. A parse
+costs LlamaCloud credits, which reset monthly.
+
+| Setting                       | Default | Why                                                      |
+| ----------------------------- | ------- | -------------------------------------------------------- |
+| `DEMO_VISITOR_PARSES_PER_DAY` | 1       | One file is enough to answer the question they came with |
+| `DEMO_GLOBAL_PARSES_PER_DAY`  | 20      | Keeps the month inside the free grant                    |
+
+The free LlamaCloud plan grants 10,000 credits a month. At three credits a page
+on the `cost_effective` tier that buys about 3,300 pages a month, or 110 a day.
+A two megabyte upload is a handful of pages, so twenty parses a day of five
+pages each spends about 300 credits a day and 9,000 a month, which leaves room
+for a heavier day than average. Raising either number without redoing that
+arithmetic is how the demo starts failing partway through a month.
+
+When the deployment-wide budget is gone, the toggle disables itself and says so,
+and Cloudflare reads the file instead. The upload still works. A visitor whose
+file is a scan is told what happened rather than being handed an empty document.
+
+A job that LlamaCloud refuses gives the allowance back, so a provider outage
+does not silently spend a visitor's one attempt for the day.
+
+### Why a job id is signed
+
+A LlamaParse job id is all that is needed to read the markdown back, so handing
+one out bare would let anyone holding it read another visitor's document. The id
+is returned as `<id>.<signature>`, signed with the deployment secret over both
+the id and the visitor it belongs to, and the polling endpoint refuses anything
+that does not verify. It is the same reasoning as scoping every query by tenant:
+a job in flight is a document that does not have a row yet.
 
 ## Keeping the demo safe
 

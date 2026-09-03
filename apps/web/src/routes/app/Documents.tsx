@@ -15,6 +15,9 @@ import { cn, formatBytes, formatDuration } from "@/lib/utils";
 
 const STAGE_LABEL: Record<IngestProgress["stage"], string> = {
   extracting: "Reading the file in your browser",
+  // Only the demo's reader toggle reaches this stage. A self-hosted install
+  // parses server side, which is a document status rather than a client stage.
+  parsing: "LlamaIndex is reading it",
   chunking: "Splitting it into passages",
   uploading: "Creating the document",
   embedding: "Embedding passages",
