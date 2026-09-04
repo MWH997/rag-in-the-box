@@ -9,6 +9,7 @@ import { Hono } from "hono";
 
 import { capabilities, indexDimensions, type Capabilities, type Env } from "../env.js";
 import { loadSettings, saveSettings, toApiSettings } from "../lib/settings.js";
+import { readJson } from "../lib/request.js";
 import type { AppEnv } from "../middleware/tenant.js";
 
 export const settingsRoute = new Hono<AppEnv>();
@@ -95,7 +96,7 @@ settingsRoute.patch("/settings", async (c) => {
     return c.json({ error: "Settings are fixed on the public demo.", code: "demo_read_only" }, 403);
   }
 
-  const patch = UpdateSettingsRequest.parse(await c.req.json());
+  const patch = await readJson(c, UpdateSettingsRequest);
   const resolved = await saveSettings(db, c.env, tenant.tenantId, patch);
   return c.json({
     settings: await toApiSettings(db, c.env, tenant.tenantId, resolved),

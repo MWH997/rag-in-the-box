@@ -13,6 +13,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { servedOffline } from "../env.js";
 import { chatLogs, chunks, documents } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
+import { readJson } from "../lib/request.js";
 import { buildContextBlock, buildUserTurn, trimHistory } from "../lib/prompt.js";
 import { embed, streamChat, type ChatTurn } from "../lib/providers/index.js";
 import { consumeQuota, refundQuota } from "../lib/quota.js";
@@ -37,7 +38,7 @@ chatRoute.post("/chat", async (c) => {
   const startedAt = Date.now();
   const db = c.get("db");
   const tenant = c.get("tenant");
-  const body = ChatRequest.parse(await c.req.json());
+  const body = await readJson(c, ChatRequest);
 
   const question = body.messages.at(-1);
   if (!question || question.role !== "user") {

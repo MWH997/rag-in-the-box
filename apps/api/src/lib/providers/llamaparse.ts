@@ -43,6 +43,23 @@ async function readError(response: Response): Promise<string> {
   return `${response.status} ${body.slice(0, 300)}`;
 }
 
+/**
+ * Reads a LlamaParse JSON reply.
+ *
+ * response.json() throws a SyntaxError when the body is not JSON, which is what
+ * a gateway returning an HTML error page with a 200 looks like. That error says
+ * nothing about whose fault it was, so uncaught it reaches the client as
+ * "something went wrong", naming this deployment rather than the upstream that
+ * actually failed.
+ */
+async function readProviderJson<T>(response: Response, provider: string, code: string): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ProviderError(`${provider} returned a reply that was not JSON`, code, 502);
+  }
+}
+
 /** Submits a file and returns the job id. The body is streamed, never buffered. */
 export async function submitParseJob(
   env: Env,
@@ -67,7 +84,11 @@ export async function submitParseJob(
     );
   }
 
-  const payload = (await response.json()) as { id?: string };
+  const payload = await readProviderJson<{ id?: string }>(
+    response,
+    "LlamaParse",
+    "llamaparse_bad_json",
+  );
   if (!payload.id) {
     throw new ProviderError("LlamaParse upload returned no job id", "llamaparse_no_job_id");
   }
@@ -86,10 +107,10 @@ export async function getJobStatus(env: Env, jobId: string): Promise<LlamaParseS
   }
   // The create response puts status at the top level; the read response nests it
   // under `job`. Read both so neither shape silently yields undefined.
-  const payload = (await response.json()) as {
+  const payload = await readProviderJson<{
     status?: LlamaParseStatus;
     job?: { status?: LlamaParseStatus };
-  };
+  }>(response, "LlamaParse", "llamaparse_bad_json");
   const status = payload.job?.status ?? payload.status;
   if (!status) {
     throw new ProviderError("LlamaParse status response had no status", "llamaparse_no_status");
@@ -108,11 +129,11 @@ export async function getJobMarkdown(env: Env, jobId: string): Promise<string> {
       "llamaparse_result_failed",
     );
   }
-  const payload = (await response.json()) as {
+  const payload = await readProviderJson<{
     markdown_full?: string;
     job?: { markdown_full?: string; pages?: { markdown?: string }[] };
     pages?: { markdown?: string }[];
-  };
+  }>(response, "LlamaParse", "llamaparse_bad_json");
   const full = payload.markdown_full ?? payload.job?.markdown_full;
   if (typeof full === "string" && full.length > 0) return full;
 
