@@ -52,6 +52,24 @@ function checkModelFitsIndex(provider: EmbeddingProvider, model: string, expecte
   }
 }
 
+/**
+ * Reads a provider's JSON reply.
+ *
+ * response.json() throws a SyntaxError when the body is not JSON, which happens
+ * when a gateway returns an HTML error page with a 200, and that error carries
+ * nothing identifying it as a provider's fault. Left bare it reaches the client
+ * as "something went wrong", naming the deployment rather than the upstream
+ * that actually failed. Saying which provider returned the mess is the whole
+ * value of catching it here.
+ */
+async function readProviderJson<T>(response: Response, provider: string, code: string): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ProviderError(`${provider} returned a reply that was not JSON`, code, 502);
+  }
+}
+
 async function embedWorkersAi(env: Env, model: string, inputs: string[]): Promise<EmbeddingResult> {
   const expected = indexDimensions(env);
   checkModelFitsIndex("workers-ai", model, expected);
@@ -114,10 +132,10 @@ async function embedOpenAi(env: Env, model: string, inputs: string[]): Promise<E
     );
   }
 
-  const payload = (await response.json()) as {
+  const payload = await readProviderJson<{
     data?: { embedding: number[]; index: number }[];
     usage?: { total_tokens?: number };
-  };
+  }>(response, "OpenAI", "embed_openai_bad_json");
   const rows = payload.data;
   if (!Array.isArray(rows) || rows.length !== inputs.length) {
     throw new ProviderError("OpenAI returned an unexpected embedding shape", "embed_bad_shape");
@@ -179,10 +197,10 @@ async function embedOllama(env: Env, model: string, inputs: string[]): Promise<E
     );
   }
 
-  const payload = (await response.json()) as {
+  const payload = await readProviderJson<{
     data?: { embedding: number[]; index: number }[];
     usage?: { total_tokens?: number };
-  };
+  }>(response, "Ollama", "embed_ollama_bad_json");
   const rows = payload.data;
   if (!Array.isArray(rows) || rows.length !== inputs.length) {
     throw new ProviderError("Ollama returned an unexpected embedding shape", "embed_bad_shape");

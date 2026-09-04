@@ -15,6 +15,7 @@ import { demoLimits, quotaChecksFor } from "../middleware/tenant.js";
 import { chunks, documentSegments, documents } from "../db/schema.js";
 import { batchForTable } from "../lib/d1.js";
 import { HttpError } from "../lib/errors.js";
+import { readJson } from "../lib/request.js";
 import { embed } from "../lib/providers/index.js";
 import { consumeQuota } from "../lib/quota.js";
 import { loadSettings } from "../lib/settings.js";
@@ -97,7 +98,7 @@ documentsRoute.get("/documents", async (c) => {
 documentsRoute.post("/documents", async (c) => {
   const db = c.get("db");
   const tenant = c.get("tenant");
-  const body = CreateDocumentRequest.parse(await c.req.json());
+  const body = await readJson(c, CreateDocumentRequest);
 
   const settings = await loadSettings(db, c.env, tenant.tenantId);
   const limits = TIER_LIMITS[settings.tier];
@@ -205,7 +206,7 @@ documentsRoute.post("/documents/:id/ingest", async (c) => {
   const db = c.get("db");
   const tenant = c.get("tenant");
   const document = await loadOwnedDocument(c, c.req.param("id"), true);
-  const body = IngestRequest.parse(await c.req.json());
+  const body = await readJson(c, IngestRequest);
 
   const settings = await loadSettings(db, c.env, tenant.tenantId);
   const limits = TIER_LIMITS[settings.tier];
