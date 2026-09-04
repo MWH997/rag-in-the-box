@@ -244,6 +244,8 @@ DEMO_GLOBAL_CHATS_PER_DAY=6
 
 Restart the API, seed a document against `http://127.0.0.1:8787`, and open
 http://localhost:5173/demo. Small limits make the exhausted banner easy to see.
+Both ports move together if something else on the machine holds one, with
+`API_PORT` and `WEB_PORT`; see the README.
 
 `npm run qa` will fail while this is in place, at the step that signs in. It
 provisions a workspace first, and provisioning is refused in demo mode on

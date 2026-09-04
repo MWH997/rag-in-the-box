@@ -8,7 +8,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "dev": "wrangler dev --local",
+    "dev": "node ../../scripts/dev-preflight.mjs ${API_PORT:-8787} API && wrangler dev --local --port ${API_PORT:-8787} --var BETTER_AUTH_URL:http://localhost:${API_PORT:-8787} --var ALLOWED_ORIGIN:http://localhost:${WEB_PORT:-5173}",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",

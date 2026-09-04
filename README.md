@@ -186,6 +186,25 @@ docs            Architecture, the API, free tier, providers, hosting, local
 | `apps/api/scripts/smoke.sh`      | End to end check against a running local API           |
 | `./scripts/deploy.sh --dry-run`  | Show what a deployment would do                        |
 
+## Local ports
+
+The API takes 8787 and the interface 5173, which is what Wrangler and Vite use
+by default. Override either when something else on your machine already has one:
+
+```bash
+API_PORT=8799 WEB_PORT=4199 npm run dev
+```
+
+The interface follows `API_PORT` on its own, and the Worker's auth URL and
+allowed origin follow both, so nothing has to be edited to move.
+
+A conflict here does not announce itself. Wrangler and Vite bind loopback, so a
+container published on `0.0.0.0` does not stop either from starting; it simply
+wins the race and answers instead, and you read another project's responses at
+this project's address. `npm run dev` therefore asks what is already answering
+before it starts, and stops with the override to use if the answer is not this
+project.
+
 ## Contributing
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org).
